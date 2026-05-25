@@ -1,0 +1,76 @@
+.pane {
+    -fx-background-color: #e6e6e6;
+}
+
+.hbox {
+    -fx-min-width: 365px;
+    -fx-min-height: 70px;
+    -fx-pref-width: 365px;
+    -fx-pref-height: 70px;
+    -fx-max-width: 365px;
+    -fx-max-height: 70;
+
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+
+    -fx-background-color: #2e2e2e;
+}
+
+.penBtn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+
+    -fx-background-image: url("img/penBtn2x.png");
+
+    -fx-background-position: center;
+    -fx-background-size: 100px 100px;
+    -fx-background-size: contain;
+}
+
+.txtBtn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+
+    -fx-background-image: url("img/txtBtn2x.png");
+
+    -fx-background-position: center;
+    -fx-background-size: 100px 100px;
+    -fx-background-size: contain;
+}
+
+.figureBtn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+
+    -fx-background-image: url("img/figures@2x.png");
+
+    -fx-background-position: center;
+    -fx-background-size: 100px 100px;
+    -fx-background-size: contain;
+}
+
+.imgBtm {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+
+    -fx-background-image: url("img/img@2x.png");
+
+    -fx-background-position: center;
+    -fx-background-size: 100px 100px;
+    -fx-background-size: contain;
+}
+
+.noteBtn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+
+    -fx-background-image: url("img/note@2x.png");
+
+    -fx-background-position: center;
+    -fx-background-size: 100px 100px;
+    -fx-background-size: contain;
+}
+
+
+
+
