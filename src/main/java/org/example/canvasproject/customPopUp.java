@@ -14,26 +14,14 @@ public class customPopUp extends Popup {
         this.owner = owner;
         this.xOffset = xOffset;
         this.yOffset = yOffset;
-
         setAutoHide(false);
-
         Scene scene = owner.getScene();
         if (scene != null) {
             Stage stage = (Stage) scene.getWindow();
-
-            stage.xProperty().addListener(
-                    (obs, oldVal, newVal) -> updatePosition());
-            stage.yProperty().addListener(
-                    (obs, oldVal, newVal) -> updatePosition());
-
-            stage.iconifiedProperty().addListener((obs, oldVal, newVal) ->{
-                if (newVal) hide();;
-            });
-
-            stage.focusedProperty().addListener((obs, oldVal, newVal) -> {
-                if (!newVal) hide();
-            });
-
+            stage.xProperty().addListener((obs, oldVal, newVal) -> updatePosition());
+            stage.yProperty().addListener((obs, oldVal, newVal) -> updatePosition());
+            stage.iconifiedProperty().addListener((obs, oldVal, newVal) -> { if (newVal) hide(); });
+            stage.focusedProperty().addListener((obs, oldVal, newVal) -> { if (!newVal) hide(); });
         }
     }
     private void updatePosition() {
@@ -42,10 +30,6 @@ public class customPopUp extends Popup {
             setY(owner.localToScreen(0,0).getY() + yOffset);
         }
     }
-
     @Override
-    public void show(Window ownerWindow) {
-        super.show(ownerWindow);
-        updatePosition();
-    }
+    public void show(Window ownerWindow) { super.show(ownerWindow); updatePosition(); }
 }

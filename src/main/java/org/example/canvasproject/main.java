@@ -12,7 +12,7 @@ public class main extends Application {
     @Override
     public void start(Stage stage) throws Exception{
 
-        // gpu activate
+        //активация гпу для производительности
         System.setProperty("prism.order", "d3d");
         System.setProperty("prism.forceGPU", "true");
 
