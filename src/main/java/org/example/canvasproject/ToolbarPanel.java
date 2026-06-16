@@ -1,6 +1,6 @@
 package org.example.canvasproject;
 
-// Единая нижняя панель инструментов.
+// нижняя панель инструментов
 
 import javafx.animation.FadeTransition;
 import javafx.geometry.Insets;
@@ -20,7 +20,6 @@ import java.util.function.Consumer;
 
 public class ToolbarPanel extends HBox {
 
-    // Режимы инструментов — по одному на кнопку панели
     public enum ToolMode { PEN, TEXT, FIGURE, NOTE, NONE }
 
     private Consumer<Color>  onColorChanged;
@@ -40,17 +39,17 @@ public class ToolbarPanel extends HBox {
     private ToolMode activeMode = ToolMode.NONE;
 
     private static final String PANEL_BG =
-        "-fx-background-color: #1e1e2e; " +
-        "-fx-background-radius: 12; " +
-        "-fx-border-color: #3a3a5c; " +
-        "-fx-border-radius: 12; " +
-        "-fx-border-width: 1;";
+            "-fx-background-color: #1e1e2e; " +
+                    "-fx-background-radius: 12; " +
+                    "-fx-border-color: #3a3a5c; " +
+                    "-fx-border-radius: 12; " +
+                    "-fx-border-width: 1;";
 
     private static final String SEPARATOR_STYLE =
-        "-fx-background-color: #3a3a5c;";
+            "-fx-background-color: #3a3a5c;";
 
     private static final String LABEL_STYLE =
-        "-fx-text-fill: #8888aa; -fx-font-size: 11;";
+            "-fx-text-fill: #8888aa; -fx-font-size: 11;";
 
     public ToolbarPanel() {
         setAlignment(Pos.CENTER_LEFT);
@@ -80,9 +79,13 @@ public class ToolbarPanel extends HBox {
 
         getChildren().addAll(controls);
 
-        // Анимация появления
+        // Делаем видимым и заставляем пересчитать размеры
         setVisible(true);
         setManaged(true);
+        applyCss();
+        layout();
+
+        // Анимация появления
         FadeTransition ft = new FadeTransition(Duration.millis(150), this);
         ft.setFromValue(0);
         ft.setToValue(1);
@@ -103,20 +106,15 @@ public class ToolbarPanel extends HBox {
     private List<Node> buildPenControls() {
         List<Node> nodes = new ArrayList<>();
 
-        // Метка группы
-        nodes.add(makeLabel("КИСТЬ"));
-        nodes.add(makeSpacer(12));
-
-        // Цвет
         nodes.add(makeLabel("Цвет"));
         nodes.add(makeSpacer(6));
         HBox colorRow = new HBox(5);
         colorRow.setAlignment(Pos.CENTER_LEFT);
 
         Color[] palette = {
-            Color.BLACK, Color.WHITE, Color.web("#FF3B30"), Color.web("#FF9500"),
-            Color.web("#FFCC00"), Color.web("#34C759"), Color.web("#007AFF"),
-            Color.web("#AF52DE"), Color.web("#FF2D55"), Color.LIGHTGRAY
+                Color.BLACK, Color.WHITE, Color.web("#FF3B30"), Color.web("#FF9500"),
+                Color.web("#FFCC00"), Color.web("#34C759"), Color.web("#007AFF"),
+                Color.web("#AF52DE"), Color.web("#FF2D55"), Color.LIGHTGRAY
         };
         for (Color c : palette) {
             colorRow.getChildren().add(makeColorDot(c, () -> {
@@ -124,7 +122,6 @@ public class ToolbarPanel extends HBox {
                 if (onColorChanged != null) onColorChanged.accept(c);
             }));
         }
-        // ColorPicker для произвольного цвета
         ColorPicker cp = makeColorPicker(currentColor, c -> {
             currentColor = c;
             if (onColorChanged != null) onColorChanged.accept(c);
@@ -134,7 +131,6 @@ public class ToolbarPanel extends HBox {
 
         nodes.add(makeSep());
 
-        // Толщина
         nodes.add(makeLabel("Толщина"));
         nodes.add(makeSpacer(6));
         Slider widthSlider = makeSlider(1, 30, currentWidth, val -> {
@@ -144,14 +140,13 @@ public class ToolbarPanel extends HBox {
         widthSlider.setPrefWidth(100);
         Label widthVal = makeValueLabel(String.format("%.0fpx", currentWidth));
         widthSlider.valueProperty().addListener((o, oldV, v) ->
-            widthVal.setText(String.format("%.0fpx", v.doubleValue())));
+                widthVal.setText(String.format("%.0fpx", v.doubleValue())));
         nodes.add(widthSlider);
         nodes.add(makeSpacer(4));
         nodes.add(widthVal);
 
         nodes.add(makeSep());
 
-        // Прозрачность
         nodes.add(makeLabel("Прозрачность"));
         nodes.add(makeSpacer(6));
         Slider opacitySlider = makeSlider(0.05, 1.0, currentOpacity, val -> {
@@ -161,7 +156,7 @@ public class ToolbarPanel extends HBox {
         opacitySlider.setPrefWidth(90);
         Label opVal = makeValueLabel(String.format("%.0f%%", currentOpacity * 100));
         opacitySlider.valueProperty().addListener((o, oldV, v) ->
-            opVal.setText(String.format("%.0f%%", v.doubleValue() * 100)));
+                opVal.setText(String.format("%.0f%%", v.doubleValue() * 100)));
         nodes.add(opacitySlider);
         nodes.add(makeSpacer(4));
         nodes.add(opVal);
@@ -169,18 +164,12 @@ public class ToolbarPanel extends HBox {
         return nodes;
     }
 
-    // TEXT — размер шрифта, цвет текста
     private List<Node> buildTextControls() {
         List<Node> nodes = new ArrayList<>();
 
-        nodes.add(makeLabel("ТЕКСТ"));
-        nodes.add(makeSpacer(12));
-
-        // Размер шрифта
         nodes.add(makeLabel("Размер"));
         nodes.add(makeSpacer(6));
 
-        // Пресеты размеров
         HBox sizeRow = new HBox(4);
         sizeRow.setAlignment(Pos.CENTER_LEFT);
         int[] sizes = {10, 12, 14, 18, 24, 32, 48};
@@ -202,15 +191,14 @@ public class ToolbarPanel extends HBox {
 
         nodes.add(makeSep());
 
-        // Цвет текста
         nodes.add(makeLabel("Цвет"));
         nodes.add(makeSpacer(6));
         HBox colorRow = new HBox(5);
         colorRow.setAlignment(Pos.CENTER_LEFT);
         Color[] textPalette = {
-            Color.BLACK, Color.WHITE, Color.web("#FF3B30"),
-            Color.web("#007AFF"), Color.web("#34C759"),
-            Color.web("#FF9500"), Color.web("#AF52DE"), Color.DARKGRAY
+                Color.BLACK, Color.WHITE, Color.web("#FF3B30"),
+                Color.web("#007AFF"), Color.web("#34C759"),
+                Color.web("#FF9500"), Color.web("#AF52DE"), Color.DARKGRAY
         };
         for (Color c : textPalette) {
             colorRow.getChildren().add(makeColorDot(c, () -> {
@@ -228,28 +216,19 @@ public class ToolbarPanel extends HBox {
         return nodes;
     }
 
-    // FIGURE — выбор фигуры и цвет заливки
     private List<Node> buildFigureControls() {
         List<Node> nodes = new ArrayList<>();
-
-        nodes.add(makeLabel("ФИГУРЫ"));
-        nodes.add(makeSpacer(12));
-
-        // Выбор фигуры
-        nodes.add(makeLabel("Фигура"));
-        nodes.add(makeSpacer(6));
 
         HBox figureRow = new HBox(6);
         figureRow.setAlignment(Pos.CENTER_LEFT);
 
-        // Пары: id → нода + подпись
         record FigureOption(String id, Node icon, String label) {}
         List<FigureOption> options = List.of(
-            new FigureOption("rect",     makeShapeIcon("rect"),     "Прямоугольник"),
-            new FigureOption("circle",   makeShapeIcon("circle"),   "Эллипс"),
-            new FigureOption("triangle", makeShapeIcon("triangle"), "Треугольник"),
-            new FigureOption("star",     makeShapeIcon("star"),     "Звезда"),
-            new FigureOption("arrow",    makeShapeIcon("arrow"),    "Стрелка")
+                new FigureOption("rect",     makeShapeIcon("rect"),     "Прямоугольник"),
+                new FigureOption("circle",   makeShapeIcon("circle"),   "Эллипс"),
+                new FigureOption("triangle", makeShapeIcon("triangle"), "Треугольник"),
+                new FigureOption("star",     makeShapeIcon("star"),     "Звезда"),
+                new FigureOption("arrow",    makeShapeIcon("arrow"),    "Стрелка")
         );
 
         List<Button> figureBtns = new ArrayList<>();
@@ -277,15 +256,14 @@ public class ToolbarPanel extends HBox {
 
         nodes.add(makeSep());
 
-        // Цвет фигуры
         nodes.add(makeLabel("Цвет"));
         nodes.add(makeSpacer(6));
         HBox colorRow = new HBox(5);
         colorRow.setAlignment(Pos.CENTER_LEFT);
         Color[] palette = {
-            Color.web("#007AFF"), Color.web("#34C759"), Color.web("#FF3B30"),
-            Color.web("#FF9500"), Color.web("#AF52DE"), Color.WHITE, Color.BLACK,
-            Color.TRANSPARENT
+                Color.web("#007AFF"), Color.web("#34C759"), Color.web("#FF3B30"),
+                Color.web("#FF9500"), Color.web("#AF52DE"), Color.WHITE, Color.BLACK,
+                Color.TRANSPARENT
         };
         for (Color c : palette) {
             colorRow.getChildren().add(makeColorDot(c, () -> {
@@ -303,12 +281,8 @@ public class ToolbarPanel extends HBox {
         return nodes;
     }
 
-    // NOTE
     private List<Node> buildNoteControls() {
         List<Node> nodes = new ArrayList<>();
-
-        nodes.add(makeLabel("СТИКЕР"));
-        nodes.add(makeSpacer(12));
 
         Label hint = new Label("Кликни на холст чтобы разместить стикер");
         hint.setStyle("-fx-text-fill: #8888aa; -fx-font-size: 12;");
@@ -316,15 +290,14 @@ public class ToolbarPanel extends HBox {
 
         nodes.add(makeSep());
 
-        // Выбор цвета стикера
         nodes.add(makeLabel("Цвет стикера"));
         nodes.add(makeSpacer(6));
         HBox colorRow = new HBox(5);
         colorRow.setAlignment(Pos.CENTER_LEFT);
         Color[] stickerColors = {
-            Color.web("#FFD60A"), Color.web("#FF9500"), Color.web("#FF2D55"),
-            Color.web("#34C759"), Color.web("#007AFF"), Color.web("#AF52DE"),
-            Color.WHITE
+                Color.web("#FFD60A"), Color.web("#FF9500"), Color.web("#FF2D55"),
+                Color.web("#34C759"), Color.web("#007AFF"), Color.web("#AF52DE"),
+                Color.WHITE
         };
         for (Color c : stickerColors) {
             colorRow.getChildren().add(makeColorDot(c, () -> {
@@ -337,10 +310,8 @@ public class ToolbarPanel extends HBox {
         return nodes;
     }
 
-    // Иконки фигур
     private Node makeShapeIcon(String type) {
         String stroke = "#aaaacc";
-        String fill   = "transparent";
         return switch (type) {
             case "rect" -> {
                 Rectangle r = new Rectangle(22, 16);
@@ -362,7 +333,6 @@ public class ToolbarPanel extends HBox {
                 yield p;
             }
             case "star" -> {
-                // 5-конечная звезда
                 double[] pts = buildStarPoints(11, 8, 10, 4, 5);
                 Polygon star = new Polygon(pts);
                 star.setFill(Color.TRANSPARENT);
@@ -370,9 +340,8 @@ public class ToolbarPanel extends HBox {
                 yield star;
             }
             case "arrow" -> {
-                // Упрощённая стрелка вправо
                 Polygon arr = new Polygon(
-                    0.0,5.0,  14.0,5.0,  14.0,1.0,  22.0,8.0,  14.0,15.0,  14.0,11.0,  0.0,11.0
+                        0.0,5.0,  14.0,5.0,  14.0,1.0,  22.0,8.0,  14.0,15.0,  14.0,11.0,  0.0,11.0
                 );
                 arr.setFill(Color.TRANSPARENT);
                 arr.setStroke(Color.web(stroke)); arr.setStrokeWidth(1.5);
@@ -433,14 +402,14 @@ public class ToolbarPanel extends HBox {
 
         if (color == Color.TRANSPARENT) {
             btn.setStyle("-fx-background-color: " +
-                "linear-gradient(from 0% 0% to 50% 50%, #bbb 25%, transparent 25%)," +
-                "linear-gradient(from 50% 50% to 100% 100%, #bbb 25%, transparent 25%)," +
-                "white; -fx-border-color: #555; -fx-border-width: 1;");
+                    "linear-gradient(from 0% 0% to 50% 50%, #bbb 25%, transparent 25%)," +
+                    "linear-gradient(from 50% 50% to 100% 100%, #bbb 25%, transparent 25%)," +
+                    "white; -fx-border-color: #555; -fx-border-width: 1;");
         } else {
             String hex = toHex(color);
             String border = color.equals(Color.WHITE) ? "#aaa" : hex;
             btn.setStyle("-fx-background-color: " + hex + "; " +
-                "-fx-border-color: " + border + "; -fx-border-width: 1;");
+                    "-fx-border-color: " + border + "; -fx-border-width: 1;");
         }
 
         btn.setOnMouseEntered(e -> btn.setScaleX(1.2));
@@ -468,23 +437,23 @@ public class ToolbarPanel extends HBox {
         String bg    = active ? "#0078ff" : "#2a2a3e";
         String border= active ? "#0078ff" : "#3a3a5c";
         return "-fx-background-color: " + bg + "; " +
-               "-fx-text-fill: " + (active ? "white" : "#ccccdd") + "; " +
-               "-fx-border-color: " + border + "; " +
-               "-fx-border-radius: 5; -fx-background-radius: 5; -fx-font-size: 11;";
+                "-fx-text-fill: " + (active ? "white" : "#ccccdd") + "; " +
+                "-fx-border-color: " + border + "; " +
+                "-fx-border-radius: 5; -fx-background-radius: 5; -fx-font-size: 11;";
     }
 
     private String figurePresetStyle(boolean active) {
         String bg    = active ? "#1a3a5c" : "#2a2a3e";
         String border= active ? "#0078ff" : "#3a3a5c";
         return "-fx-background-color: " + bg + "; " +
-               "-fx-border-color: " + border + "; " +
-               "-fx-border-radius: 7; -fx-background-radius: 7; " +
-               "-fx-border-width: 1.5;";
+                "-fx-border-color: " + border + "; " +
+                "-fx-border-radius: 7; -fx-background-radius: 7; " +
+                "-fx-border-width: 1.5;";
     }
 
     private String toHex(Color c) {
         return String.format("#%02X%02X%02X",
-            (int)(c.getRed()*255), (int)(c.getGreen()*255), (int)(c.getBlue()*255));
+                (int)(c.getRed()*255), (int)(c.getGreen()*255), (int)(c.getBlue()*255));
     }
 
     public Color   getCurrentColor()     { return currentColor; }

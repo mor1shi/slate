@@ -46,8 +46,27 @@
       <artifactId>gesturefx</artifactId>
       <version>0.7.1</version>
     </dependency>
-  </dependencies>
+    <!--
+  Зависимости для клиентского модуля (JavaFX приложение).
+  Добавьте эти зависимости в pom.xml вашего JavaFX-проекта.
+  Все зависимости JavaFX оставьте как у вас уже есть.
+-->
 
+    <!-- WebSocket клиент -->
+    <dependency>
+      <groupId>org.java-websocket</groupId>
+      <artifactId>Java-WebSocket</artifactId>
+      <version>1.5.4</version>
+    </dependency>
+
+    <!-- JSON -->
+    <dependency>
+      <groupId>org.json</groupId>
+      <artifactId>json</artifactId>
+      <version>20240303</version>
+    </dependency>
+
+  </dependencies>
   <build>
     <plugins>
       <plugin>
@@ -64,7 +83,7 @@
         <artifactId>javafx-maven-plugin</artifactId>
         <version>0.0.8</version>
         <configuration>
-          <mainClass>org.example.canvasproject.Main</mainClass>
+          <mainClass>org.example.canvasproject.main</mainClass>
         </configuration>
       </plugin>
     </plugins>

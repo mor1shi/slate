@@ -1,20 +1,19 @@
 package org.example.canvasproject;
 
 import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
+import javafx.scene.Parent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 
 public class SelectionOverlay extends Group {
 
     private static final double HANDLE_SIZE  = 9.0;
-    private static final double DELETE_SIZE  = 18.0;
     private static final double PADDING      = 6.0;
     private static final String ACCENT_COLOR = "#0078FF";
-    private static final String DELETE_COLOR = "#FF3B30";
 
     private final Selectable target;
     private final SelectionManager manager;
@@ -22,7 +21,6 @@ public class SelectionOverlay extends Group {
 
     private final Rectangle selectionRect;
     private final Rectangle handleTL, handleTR, handleBL, handleBR;
-    private final Group deleteButton;
 
     private ElementMemento gestureBefore;
     private double dragStartSceneX, dragStartSceneY;
@@ -38,16 +36,15 @@ public class SelectionOverlay extends Group {
         this.commandManager = manager.getCommandManager();
 
         if (target instanceof customTextField tf) tf.setActiveOverlay(this);
-        if (target instanceof stickyNote sn)      sn.setActiveOverlay(this); // ИЗМЕНЕНИЕ
+        if (target instanceof stickyNote sn)      sn.setActiveOverlay(this);
 
         selectionRect = buildSelectionRect();
         handleTL = buildHandle("NW", Cursor.NW_RESIZE);
         handleTR = buildHandle("NE", Cursor.NE_RESIZE);
         handleBL = buildHandle("SW", Cursor.SW_RESIZE);
         handleBR = buildHandle("SE", Cursor.SE_RESIZE);
-        deleteButton = buildDeleteButton();
 
-        getChildren().addAll(selectionRect, deleteButton);
+        getChildren().add(selectionRect);
         if (target.isResizable()) {
             getChildren().addAll(handleTL, handleTR, handleBL, handleBR);
         }
@@ -77,34 +74,6 @@ public class SelectionOverlay extends Group {
         return h;
     }
 
-    private Group buildDeleteButton() {
-        Rectangle bg = new Rectangle(DELETE_SIZE, DELETE_SIZE);
-        bg.setArcWidth(DELETE_SIZE);
-        bg.setArcHeight(DELETE_SIZE);
-        bg.setFill(Color.web(DELETE_COLOR));
-        bg.setStroke(Color.WHITE);
-        bg.setStrokeWidth(1.5);
-
-        double pad = 5.0;
-        Line l1 = new Line(pad, pad, DELETE_SIZE - pad, DELETE_SIZE - pad);
-        Line l2 = new Line(DELETE_SIZE - pad, pad, pad, DELETE_SIZE - pad);
-        l1.setStroke(Color.WHITE); l1.setStrokeWidth(2);
-        l2.setStroke(Color.WHITE); l2.setStrokeWidth(2);
-
-        Group btn = new Group(bg, l1, l2);
-        btn.setCursor(Cursor.HAND);
-        btn.setOnMouseEntered(e -> bg.setFill(Color.web("#CC2A20")));
-        btn.setOnMouseExited(e  -> bg.setFill(Color.web(DELETE_COLOR)));
-
-        btn.setOnMouseClicked(e -> {
-            if (e.getButton() == MouseButton.PRIMARY) {
-                manager.deleteSelected();
-            }
-            e.consume();
-        });
-        return btn;
-    }
-
     private void setupDragOnRect(Rectangle rect) {
         rect.setOnMousePressed(e -> {
             if (e.getButton() != MouseButton.PRIMARY) return;
@@ -119,12 +88,21 @@ public class SelectionOverlay extends Group {
 
         rect.setOnMouseDragged(e -> {
             if (!isDragging) return;
-            double dx = e.getSceneX() - dragStartSceneX;
-            double dy = e.getSceneY() - dragStartSceneY;
+            double dx, dy;
+            Parent p = getParent();
+            if (p != null) {
+                Point2D curr  = p.sceneToLocal(e.getSceneX(), e.getSceneY());
+                Point2D start = p.sceneToLocal(dragStartSceneX, dragStartSceneY);
+                dx = curr.getX() - start.getX();
+                dy = curr.getY() - start.getY();
+            } else {
+                dx = e.getSceneX() - dragStartSceneX;
+                dy = e.getSceneY() - dragStartSceneY;
+            }
             dragStartSceneX = e.getSceneX();
             dragStartSceneY = e.getSceneY();
             target.move(dx, dy);
-            if (Math.abs(dx) > 0 || Math.abs(dy) > 0) moved = true;
+            if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) moved = true;
             refresh();
             e.consume();
         });
@@ -134,6 +112,7 @@ public class SelectionOverlay extends Group {
             isDragging = false;
             if (moved) {
                 commandManager.execute(new ChangeStateCommand(target, gestureBefore, target.save()));
+                manager.notifyElementChanged(target);
             }
             e.consume();
         });
@@ -162,11 +141,20 @@ public class SelectionOverlay extends Group {
         });
 
         handle.setOnMouseDragged(e -> {
-            double dx = e.getSceneX() - resizeStartSceneX;
-            double dy = e.getSceneY() - resizeStartSceneY;
+            double dx, dy;
+            Parent p = getParent();
+            if (p != null) {
+                Point2D curr  = p.sceneToLocal(e.getSceneX(), e.getSceneY());
+                Point2D start = p.sceneToLocal(resizeStartSceneX, resizeStartSceneY);
+                dx = curr.getX() - start.getX();
+                dy = curr.getY() - start.getY();
+            } else {
+                dx = e.getSceneX() - resizeStartSceneX;
+                dy = e.getSceneY() - resizeStartSceneY;
+            }
+
             double newW = resizeStartWidth;
             double newH = resizeStartHeight;
-
             switch (anchor) {
                 case "SE": newW = resizeStartWidth + dx;  newH = resizeStartHeight + dy;  break;
                 case "SW": newW = resizeStartWidth - dx;  newH = resizeStartHeight + dy;  break;
@@ -175,7 +163,6 @@ public class SelectionOverlay extends Group {
             }
             newW = Math.max(newW, 30);
             newH = Math.max(newH, 20);
-
             target.resize(anchor, newW, newH);
             resized = true;
             refresh();
@@ -185,6 +172,8 @@ public class SelectionOverlay extends Group {
         handle.setOnMouseReleased(e -> {
             if (resized) {
                 commandManager.execute(new ChangeStateCommand(target, gestureBefore, target.save()));
+                // FIX: уведомляем сервер об изменении размера
+                manager.notifyElementChanged(target);
             }
             resized = false;
             e.consume();
@@ -210,9 +199,6 @@ public class SelectionOverlay extends Group {
         placeHandle(handleTR, x + w - hs,   y - hs);
         placeHandle(handleBL, x - hs,       y + h - hs);
         placeHandle(handleBR, x + w - hs,   y + h - hs);
-
-        deleteButton.setLayoutX(x + w - DELETE_SIZE / 2);
-        deleteButton.setLayoutY(y - DELETE_SIZE / 2);
 
         boolean resizable = target.isResizable();
         handleTL.setVisible(resizable);

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.example.canvasproject.ui.CanvasListController"
+            stylesheets="@style-auth.css"
+            prefWidth="820" prefHeight="560">
+
+    <HBox AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0"
+          AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+
+        <!--SIDEBAR-->
+        <VBox styleClass="sidebar" prefWidth="190" minWidth="190" maxWidth="190">
+
+            <!-- Приветствие -->
+            <Label fx:id="welcomeLabel"   styleClass="sidebar-title"    wrapText="true"/>
+            <Label fx:id="statusLabel"    styleClass="sidebar-subtitle" wrapText="true"/>
+
+            <Region prefHeight="16"/>
+
+            <!-- Создать / войти -->
+            <Button fx:id="createBtn"     text="＋  Новый канвас"  styleClass="sidebar-btn"/>
+            <Region prefHeight="6"/>
+            <Button fx:id="joinByCodeBtn" text="🔑  По коду"        styleClass="sidebar-btn"/>
+
+            <Region prefHeight="16"/>
+            <Separator styleClass="separator"/>
+            <Region prefHeight="16"/>
+
+            <!-- Управление выбранным -->
+            <Button fx:id="openBtn"   text="▶  Открыть"         styleClass="sidebar-btn"/>
+            <Region prefHeight="6"/>
+            <Button fx:id="renameBtn" text="✏  Переименовать"   styleClass="sidebar-btn"/>
+            <Region prefHeight="6"/>
+            <Button fx:id="deleteBtn" text="🗑  Удалить"          styleClass="sidebar-btn-danger"/>
+
+            <Region VBox.vgrow="ALWAYS"/>
+
+            <!-- Кнопка выхода -->
+            <HBox alignment="CENTER_LEFT" spacing="8">
+                <Button fx:id="logoutBtn" text="⏻"
+                        style="-fx-background-color:#888; -fx-background-radius:20; -fx-text-fill:white;
+                               -fx-font-size:14px; -fx-pref-width:32px; -fx-pref-height:32px;
+                               -fx-padding:0; -fx-cursor:hand; -fx-border-color:transparent;"
+                        prefWidth="32" prefHeight="32"/>
+                <Label text="Выйти" style="-fx-text-fill:#cccccc; -fx-font-size:12px;"/>
+            </HBox>
+        </VBox>
+
+        <!-- карточки канвасов -->
+        <VBox HBox.hgrow="ALWAYS"
+              style="-fx-background-color:#f0f0f0; -fx-padding: 24;">
+
+            <!-- Скролл с карточками -->
+            <ScrollPane fx:id="scrollPane" VBox.vgrow="ALWAYS"
+                        fitToWidth="true"
+                        style="-fx-background-color:transparent; -fx-border-color:transparent;
+                               -fx-background:transparent;">
+
+                <!-- FlowPane с карточками заполняется из контроллера -->
+                <FlowPane fx:id="cardsPane"
+                          hgap="16" vgap="16"
+                          style="-fx-background-color:transparent; -fx-padding:4;"/>
+            </ScrollPane>
+        </VBox>
+    </HBox>
+</AnchorPane>

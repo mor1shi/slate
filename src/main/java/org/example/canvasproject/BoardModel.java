@@ -7,14 +7,10 @@ import java.util.List;
 
 /**
  * Единая модель доски: один список ВСЕХ элементов + ссылка на группу сцен-графа.
- *
- * Раньше было два параллельных мира (items для линий и textFields для текста) —
- * из-за этого команды/удаление работали по-разному. Теперь всё в одном месте,
- * и add/remove одинаковы для любого типа.
  */
 public class BoardModel {
 
-    private final Group group;                       // canvasGroup из контроллера
+    private final Group group;
     private final List<Selectable> elements = new ArrayList<>();
 
     public BoardModel(Group group) {
@@ -41,7 +37,6 @@ public class BoardModel {
         return elements;
     }
 
-    /** Верхний (последний добавленный) элемент под точкой. */
     public Selectable findAt(double x, double y) {
         for (int i = elements.size() - 1; i >= 0; i--) {
             Selectable el = elements.get(i);

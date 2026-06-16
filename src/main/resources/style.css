@@ -9,68 +9,160 @@
     -fx-pref-height: 70px;
     -fx-max-width: 365px;
     -fx-max-height: 70;
-
     -fx-background-radius: 10px;
     -fx-border-radius: 10px;
-
-    -fx-background-color: #2e2e2e;
+    -fx-background-color: #2E2E2E;
 }
-
+ /* кнопки */
 .penBtn {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
-
     -fx-background-image: url("img/penBtn2x.png");
-
     -fx-background-position: center;
-    -fx-background-size: 100px 100px;
     -fx-background-size: contain;
 }
-
 .txtBtn {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
-
     -fx-background-image: url("img/txtBtn2x.png");
-
     -fx-background-position: center;
-    -fx-background-size: 100px 100px;
     -fx-background-size: contain;
 }
-
 .figureBtn {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
-
     -fx-background-image: url("img/figures@2x.png");
-
     -fx-background-position: center;
-    -fx-background-size: 100px 100px;
     -fx-background-size: contain;
 }
-
 .imgBtm {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
-
     -fx-background-image: url("img/img@2x.png");
-
     -fx-background-position: center;
-    -fx-background-size: 100px 100px;
     -fx-background-size: contain;
 }
-
 .noteBtn {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
-
     -fx-background-image: url("img/note@2x.png");
-
     -fx-background-position: center;
-    -fx-background-size: 100px 100px;
     -fx-background-size: contain;
 }
 
+.menu-btn {
+    -fx-background-color: #6b6b6b;
+    -fx-background-radius: 30;
+    -fx-pref-width: 44px;
+    -fx-pref-height: 44px;
+    -fx-font-size: 20px;
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+    -fx-border-color: #888888;
+    -fx-border-radius: 30;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 6, 0, 0, 2);
+}
+.menu-btn:hover {
+    -fx-background-color: #7a7a7a;
+    -fx-text-fill: #ffffff;
+}
 
+.nav-panel {
+    -fx-background-color: #6b6b6b;
+    -fx-padding: 16 14 20 14;
+    -fx-spacing: 4;
+    -fx-border-color: #888888;
+    -fx-border-width: 0 1 0 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 12, 0, 0, 0);
+}
 
+.nav-canvas-title {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 0 0 2;
+    -fx-wrap-text: true;
+}
+.nav-canvas-size {
+    -fx-text-fill: #cccccc;
+    -fx-font-size: 11px;
+    -fx-padding: 0 0 6 2;
+}
 
+/* Секционные заголовки */
+.nav-section-label {
+    -fx-text-fill: #bbbbbb;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 0 2 4;
+}
+
+.nav-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ffffff;
+    -fx-background-radius: 8;
+    -fx-padding: 8 10;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-pref-width: 252px;
+}
+.nav-btn:hover {
+    -fx-background-color: #7a7a7a;
+    -fx-border-color: #999999;
+}
+.nav-btn:pressed {
+    -fx-background-color: #2E2E2E;
+}
+
+.nav-btn-accent {
+    -fx-background-color: #555555;
+    -fx-text-fill: #ffffff;
+    -fx-background-radius: 8;
+    -fx-padding: 8 10;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-color: #888888;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-pref-width: 252px;
+}
+.nav-btn-accent:hover {
+    -fx-background-color: #666666;
+}
+
+.nav-btn-danger {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ffaaaa;
+    -fx-background-radius: 8;
+    -fx-padding: 8 10;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-pref-width: 252px;
+}
+.nav-btn-danger:hover {
+    -fx-background-color: #7a3030;
+    -fx-text-fill: #ffffff;
+}
+
+.nav-separator {
+    -fx-background-color: #888888;
+    -fx-pref-height: 1;
+}
+
+.nav-version-label {
+    -fx-text-fill: #cccccc;
+    -fx-font-size: 10px;
+    -fx-padding: 4 0 0 4;
+}

@@ -6,7 +6,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Node;
-import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
@@ -17,24 +16,18 @@ import java.util.UUID;
 
 public class stickyNote extends VBox implements Selectable {
 
-    private final String id = UUID.randomUUID().toString();
-
-    // Положение и размер
     private double posX, posY;
     private double noteWidth  = 200;
     private double noteHeight = 160;
 
-    // Цвет стикера
     private Color noteColor;
+    private double currentFontSize = 14.0;
 
-    // UI-элементы
-    private final HBox     header;
+    private final HBox      header;
     private final TextField titleField;
     private final TextArea  bodyArea;
 
     private boolean editMode = false;
-
-    // Ссылка на активный overlay (для auto-refresh при resize поля)
     private SelectionOverlay activeOverlay;
 
     public stickyNote(double x, double y, Color color) {
@@ -43,14 +36,15 @@ public class stickyNote extends VBox implements Selectable {
         this.posY      = y;
         this.noteColor = color;
 
+        super.setId(UUID.randomUUID().toString());
+
         setLayoutX(x);
         setLayoutY(y);
         setPrefWidth(noteWidth);
         setPrefHeight(noteHeight);
-        setStyle(noteStyle());
+        applyNoteStyle();
 
-        // Шапка с цветом
-        header = buildHeader();
+        header     = buildHeader();
         titleField = buildTitleField();
         bodyArea   = buildBodyArea();
 
@@ -60,12 +54,29 @@ public class stickyNote extends VBox implements Selectable {
         getChildren().addAll(header, bodyArea);
         VBox.setVgrow(bodyArea, Priority.ALWAYS);
 
-        // Нода не редактируется при обычном клике
         setCursor(Cursor.HAND);
+        applyFontSizes();
 
-        // Если размер меняется — обновить overlay
         widthProperty().addListener((o, ov, nv)  -> { if (activeOverlay != null) activeOverlay.refresh(); });
         heightProperty().addListener((o, ov, nv) -> { if (activeOverlay != null) activeOverlay.refresh(); });
+    }
+
+    public void setFontSize(double size) {
+        this.currentFontSize = size;
+        applyFontSizes();
+    }
+
+    private void applyFontSizes() {
+        if (titleField == null || bodyArea == null) return;
+        titleField.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; " +
+                "-fx-text-fill: " + titleTextColor() + "; " +
+                "-fx-font-size: " + Math.max(10, (int)(currentFontSize * 0.9)) + "px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-prompt-text-fill: derive(" + titleTextColor() + ", 40%);");
+        bodyArea.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; " +
+                "-fx-text-fill: #2a2a2a; " +
+                "-fx-font-size: " + (int)currentFontSize + "px; " +
+                "-fx-control-inner-background: transparent;");
     }
 
     private HBox buildHeader() {
@@ -73,7 +84,7 @@ public class stickyNote extends VBox implements Selectable {
         h.setAlignment(Pos.CENTER_LEFT);
         h.setPadding(new Insets(5, 8, 5, 8));
         h.setStyle("-fx-background-color: " + toHex(noteColor) + "; " +
-                   "-fx-background-radius: 9 9 0 0;");
+                "-fx-background-radius: 9 9 0 0;");
         h.setPrefHeight(34);
         return h;
     }
@@ -82,14 +93,6 @@ public class stickyNote extends VBox implements Selectable {
         TextField tf = new TextField();
         tf.setPromptText("Заголовок...");
         tf.setEditable(false);
-        tf.setStyle(
-            "-fx-background-color: transparent; " +
-            "-fx-border-color: transparent; " +
-            "-fx-text-fill: " + titleTextColor() + "; " +
-            "-fx-font-size: 13; -fx-font-weight: bold; " +
-            "-fx-prompt-text-fill: derive(" + titleTextColor() + ", 40%);");
-
-        // Двойной клик по заголовку — редактировать заголовок
         tf.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2) {
                 tf.setEditable(true);
@@ -107,7 +110,6 @@ public class stickyNote extends VBox implements Selectable {
                 e.consume();
             }
         });
-
         return tf;
     }
 
@@ -116,15 +118,7 @@ public class stickyNote extends VBox implements Selectable {
         ta.setPromptText("Введите заметку...");
         ta.setEditable(false);
         ta.setWrapText(true);
-        ta.setStyle(
-            "-fx-background-color: transparent; " +
-            "-fx-border-color: transparent; " +
-            "-fx-text-fill: #2a2a2a; " +
-            "-fx-font-size: 12; " +
-            "-fx-control-inner-background: transparent;");
         ta.setPadding(new Insets(6, 8, 6, 8));
-
-        // Двойной клик по телу — редактировать тело
         ta.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2 && !editMode) {
                 enterBodyEditMode();
@@ -137,7 +131,6 @@ public class stickyNote extends VBox implements Selectable {
         ta.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ESCAPE) exitEditMode();
         });
-
         return ta;
     }
 
@@ -148,9 +141,11 @@ public class stickyNote extends VBox implements Selectable {
         bodyArea.positionCaret(bodyArea.getText().length());
     }
 
-    @Override public String getElementId() { return id; }
-    @Override public String getType()      { return "note"; }
-    @Override public Node   getNode()      { return this; }
+    @Override
+    public String getElementId() { return getId(); }
+
+    @Override public String getType() { return "note"; }
+    @Override public Node   getNode() { return this; }
 
     @Override
     public Bounds getSelectBounds() {
@@ -167,27 +162,31 @@ public class stickyNote extends VBox implements Selectable {
     @Override
     public void resize(String anchor, double newWidth, double newHeight) {
         double oldX = getLayoutX(), oldY = getLayoutY();
-        double oldW = getWidth(), oldH = getHeight();
+        double oldW = getPrefWidth(), oldH = getPrefHeight();
 
-        double w = Math.max(newWidth,  140);
+        double w = Math.max(newWidth, 140);
         double h = Math.max(newHeight, 100);
+        double newX = oldX, newY = oldY;
 
+        switch (anchor) {
+            case "NW": newX = oldX + oldW - w; newY = oldY + oldH - h; break;
+            case "NE": newX = oldX;            newY = oldY + oldH - h; break;
+            case "SW": newX = oldX + oldW - w; newY = oldY;            break;
+            default:   newX = oldX;            newY = oldY;            break;
+        }
+
+        setLayoutX(newX);
+        setLayoutY(newY);
         setPrefWidth(w);
         setPrefHeight(h);
-
-        if (anchor.equals("NW") || anchor.equals("SW")) setLayoutX(oldX + (oldW - w));
-        if (anchor.equals("NW") || anchor.equals("NE")) setLayoutY(oldY + (oldH - h));
-
         if (activeOverlay != null) activeOverlay.refresh();
     }
 
-    @Override public boolean isResizable()     { return true; }
-    @Override public boolean supportsEditMode(){ return true; }
+    @Override public boolean isResizable()      { return true; }
+    @Override public boolean supportsEditMode() { return true; }
 
     @Override
-    public void enterEditMode() {
-        enterBodyEditMode();
-    }
+    public void enterEditMode() { enterBodyEditMode(); }
 
     @Override
     public void exitEditMode() {
@@ -203,24 +202,41 @@ public class stickyNote extends VBox implements Selectable {
 
     public boolean isEditMode() { return editMode; }
 
-    // Memento
+
+    public String getText() { return getNoteText(); }
+
+    public void setText(String text) { setNoteText(text); }
+
+    public Color  getNoteColor() { return noteColor; }
+
+    public String getNoteText() {
+        return bodyArea != null ? bodyArea.getText() : "";
+    }
+
+    public void setNoteText(String text) {
+        if (bodyArea != null) bodyArea.setText(text);
+    }
+
     private static class State implements ElementMemento {
         final double x, y, w, h;
         final String title, body;
-        final Color color;
-        State(double x, double y, double w, double h, String title, String body, Color color) {
+        final Color  color;
+        final double fontSize;
+        State(double x, double y, double w, double h,
+              String title, String body, Color color, double fontSize) {
             this.x = x; this.y = y; this.w = w; this.h = h;
-            this.title = title; this.body = body; this.color = color;
+            this.title = title; this.body = body;
+            this.color = color; this.fontSize = fontSize;
         }
     }
 
     @Override
     public ElementMemento save() {
         return new State(
-            getLayoutX(), getLayoutY(),
-            getWidth() > 0 ? getWidth() : getPrefWidth(),
-            getHeight() > 0 ? getHeight() : getPrefHeight(),
-            titleField.getText(), bodyArea.getText(), noteColor
+                getLayoutX(), getLayoutY(),
+                getPrefWidth(), getPrefHeight(),
+                titleField.getText(), bodyArea.getText(),
+                noteColor, currentFontSize
         );
     }
 
@@ -232,40 +248,38 @@ public class stickyNote extends VBox implements Selectable {
         titleField.setText(s.title);
         bodyArea.setText(s.body);
         noteColor = s.color;
+        currentFontSize = s.fontSize;
         applyColor();
+        applyFontSizes();
         if (activeOverlay != null) activeOverlay.refresh();
     }
 
-    private String noteStyle() {
-        return "-fx-background-color: derive(" + toHex(noteColor) + ", 75%); " +
-               "-fx-background-radius: 10; " +
-               "-fx-border-color: derive(" + toHex(noteColor) + ", -20%); " +
-               "-fx-border-radius: 10; " +
-               "-fx-border-width: 1; " +
-               "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 3);";
+    private void applyNoteStyle() {
+        setStyle("-fx-background-color: derive(" + toHex(noteColor) + ", 75%); " +
+                "-fx-background-radius: 10; " +
+                "-fx-border-color: derive(" + toHex(noteColor) + ", -20%); " +
+                "-fx-border-radius: 10; " +
+                "-fx-border-width: 1; " +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 3);");
     }
 
     private String titleTextColor() {
-        double luminance = 0.299 * noteColor.getRed()
-                         + 0.587 * noteColor.getGreen()
-                         + 0.114 * noteColor.getBlue();
-        return luminance > 0.55 ? "#222222" : "#ffffff";
+        double lum = 0.299 * noteColor.getRed()
+                   + 0.587 * noteColor.getGreen()
+                   + 0.114 * noteColor.getBlue();
+        return lum > 0.55 ? "#222222" : "#ffffff";
     }
 
     private void applyColor() {
-        setStyle(noteStyle());
+        applyNoteStyle();
         header.setStyle("-fx-background-color: " + toHex(noteColor) + "; " +
-                        "-fx-background-radius: 9 9 0 0;");
-        titleField.setStyle(
-            "-fx-background-color: transparent; -fx-border-color: transparent; " +
-            "-fx-text-fill: " + titleTextColor() + "; -fx-font-size: 13; " +
-            "-fx-font-weight: bold; " +
-            "-fx-prompt-text-fill: derive(" + titleTextColor() + ", 40%);");
+                "-fx-background-radius: 9 9 0 0;");
+        applyFontSizes();
     }
 
     private String toHex(Color c) {
         if (c == null) return "#FFD60A";
         return String.format("#%02X%02X%02X",
-            (int)(c.getRed()*255), (int)(c.getGreen()*255), (int)(c.getBlue()*255));
+                (int)(c.getRed()*255), (int)(c.getGreen()*255), (int)(c.getBlue()*255));
     }
 }

@@ -3,23 +3,71 @@
 <?import javafx.scene.canvas.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-
+<?import javafx.scene.shape.Rectangle?>
 <?import javafx.scene.image.ImageView?>
-<AnchorPane fx:id="pane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="800.0" styleClass="pane" stylesheets="style.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.canvasproject.controller">
 
-    <Canvas fx:id="canvas" height="600.0" width="800.0" />
+<AnchorPane fx:id="pane" maxHeight="-Infinity" maxWidth="-Infinity"
+            minHeight="-Infinity" minWidth="-Infinity"
+            prefHeight="800.0" prefWidth="1200.0"
+            styleClass="pane" stylesheets="style.css"
+            xmlns="http://javafx.com/javafx/17.0.12"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.canvasproject.controller">
 
+    <Rectangle fx:id="overlay" width="1200.0" height="800.0" fill="#000000" opacity="0.0" visible="false"/>
+
+    <VBox fx:id="navPanel" prefWidth="280.0" prefHeight="800.0" styleClass="nav-panel" visible="false">
+
+        <Region prefHeight="48"/>
+
+        <Label text="НАВИГАЦИЯ" styleClass="nav-section-label"/>
+        <Button text="🏠  На главную"        styleClass="nav-btn"        onAction="#onGoHome"/>
+        <Button text="✉️  Код приглашения"    styleClass="nav-btn-accent" onAction="#onInvite"/>
+
+        <Region prefHeight="4"/>
+        <Separator styleClass="nav-separator"/>
+        <Region prefHeight="4"/>
+
+        <Label text="ФАЙЛ" styleClass="nav-section-label"/>
+        <Button text="📐  Изменить размер"   styleClass="nav-btn"        onAction="#onResizeCanvas"/>
+        <Button text="💾  Экспорт PNG"        styleClass="nav-btn"        onAction="#onExportPng"/>
+
+        <Region prefHeight="4"/>
+        <Separator styleClass="nav-separator"/>
+        <Region prefHeight="4"/>
+
+        <Label text="ВИД" styleClass="nav-section-label"/>
+        <Button text="🎨  Тёмный фон"        styleClass="nav-btn"        onAction="#onToggleBg"/>
+        <Button text="®️  Сбросить зум"       styleClass="nav-btn"        onAction="#onResetZoom"/>
+
+        <Region prefHeight="4"/>
+        <Separator styleClass="nav-separator"/>
+        <Region prefHeight="4"/>
+
+        <Label text="ПРАВКИ" styleClass="nav-section-label"/>
+        <Button text="⬅️  Отменить (Ctrl+Z)"  styleClass="nav-btn"        onAction="#onUndo"/>
+        <Button text="➡️  Повторить (Ctrl+Y)" styleClass="nav-btn"        onAction="#onRedo"/>
+        <Button text="🗑  Очистить всё"       styleClass="nav-btn-danger" onAction="#onClearAll"/>
+
+        <Region VBox.vgrow="ALWAYS"/>
+        <Label text="Версия 1.0" styleClass="nav-version-label"/>
+    </VBox>
+
+    <Button fx:id="menuBtn" layoutX="15.0" layoutY="15.0"
+            styleClass="menu-btn" text="☰" onAction="#toggleNavPanel"/>
+
+    <Canvas fx:id="canvas" height="1080.0" width="1920.0"/>
     <ImageView fx:id="imageView" layoutX="50.0" layoutY="50.0" fitWidth="200.0" preserveRatio="true"/>
 
-    <VBox alignment="BOTTOM_CENTER" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
-        <HBox alignment="CENTER" layoutX="150.0" layoutY="350.0" maxWidth="380.0" prefHeight="0.0" prefWidth="380.0" spacing="15.0" styleClass="hbox" translateY="-20" StackPane.alignment="BOTTOM_CENTER">
-                <children>
-                    <Button fx:id="penBtn" prefHeight="50.0" prefWidth="50.0" styleClass="penBtn" />
-                    <Button fx:id="textBtn" prefHeight="50.0" prefWidth="50.0" styleClass="txtBtn" />
-                    <Button fx:id="figureBtn" prefHeight="50.0" prefWidth="50.0" styleClass="figureBtn" />
-                    <Button fx:id="imgBtm" prefHeight="50.0" prefWidth="50.0" styleClass="imgBtm" />
-                    <Button fx:id="noteBtn" prefHeight="50.0" prefWidth="50.0" styleClass="noteBtn" />
-                </children>
-            </HBox>
+    <VBox alignment="BOTTOM_CENTER"
+          AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+        <HBox alignment="CENTER" maxWidth="380.0" prefHeight="0.0" prefWidth="380.0"
+              spacing="15.0" styleClass="hbox" translateY="-20">
+            <Button fx:id="penBtn"    prefHeight="50.0" prefWidth="50.0" styleClass="penBtn"/>
+            <Button fx:id="textBtn"   prefHeight="50.0" prefWidth="50.0" styleClass="txtBtn"/>
+            <Button fx:id="figureBtn" prefHeight="50.0" prefWidth="50.0" styleClass="figureBtn"/>
+            <Button fx:id="imgBtm"    prefHeight="50.0" prefWidth="50.0" styleClass="imgBtm"/>
+            <Button fx:id="noteBtn"   prefHeight="50.0" prefWidth="50.0" styleClass="noteBtn"/>
+        </HBox>
     </VBox>
 </AnchorPane>

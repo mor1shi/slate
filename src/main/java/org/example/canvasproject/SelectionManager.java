@@ -4,18 +4,8 @@ import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.input.MouseButton;
 
-/**
- * Универсальная часть взаимодействия со всеми элементами
- *
- * Делает три вещи
- *   1) attachInteraction — вешает на ноду элемента обработку клика
- *      (одиночный клик = выделить, двойной = редактировать, если поддерживается)
- *   2) select / clearSelection — управляет единственным активным оверлеем
- *   3) add — добавляет элемент через команду (undo-able) и сразу выделяет
- *
- * Чтобы добавить новый тип элемента, контроллеру достаточно вызвать
- * selection.add(new МойЭлемент(...)). Больше ничего писать не нужно
- */
+import java.util.function.Consumer;
+
 public class SelectionManager {
 
     private final Group group;
@@ -23,10 +13,25 @@ public class SelectionManager {
     private final CommandManager commandManager;
     private SelectionOverlay activeOverlay;
 
+    private Consumer<Selectable> onElementDeleted;
+    private Consumer<Selectable> onElementChanged;
+
     public SelectionManager(Group group, BoardModel model, CommandManager commandManager) {
         this.group = group;
         this.model = model;
         this.commandManager = commandManager;
+    }
+
+    public void setOnElementDeleted(Consumer<Selectable> callback) {
+        this.onElementDeleted = callback;
+    }
+
+    public void setOnElementChanged(Consumer<Selectable> callback) {
+        this.onElementChanged = callback;
+    }
+
+    public void notifyElementChanged(Selectable el) {
+        if (onElementChanged != null) onElementChanged.accept(el);
     }
 
     public CommandManager getCommandManager() { return commandManager; }
@@ -38,22 +43,20 @@ public class SelectionManager {
         node.setOnMouseClicked(ev -> {
             if (ev.getButton() != MouseButton.PRIMARY) return;
             if (ev.getClickCount() >= 2 && el.supportsEditMode()) {
-                el.enterEditMode();            // двойной клик → ввод/редактирование
+                el.enterEditMode();
             } else {
-                select(el);                    // одиночный клик → рамка (оверлей)
+                select(el);
             }
             ev.consume();
         });
     }
 
-    // Добавить элемент на доску (с записью в историю) и выделить
     public void add(Selectable el) {
         attachInteraction(el);
         commandManager.execute(new AddCommand(el, model));
         select(el);
     }
 
-    // Добавить уже нарисованный/готовый элемент без авто-выделения (например, штрих пера)
     public void addSilently(Selectable el) {
         attachInteraction(el);
         commandManager.execute(new AddCommand(el, model));
@@ -82,6 +85,7 @@ public class SelectionManager {
         Selectable target = activeOverlay.getTarget();
         clearSelection();
         commandManager.execute(new DeleteCommand(target, model));
+        if (onElementDeleted != null) onElementDeleted.accept(target);
     }
 
     public void refreshOverlay() {

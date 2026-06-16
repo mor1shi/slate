@@ -46,14 +46,41 @@ public class imageElement extends ImageView implements Selectable {
 
     @Override
     public void resize(String anchor, double newWidth, double newHeight) {
-        double oldX = getLayoutX(), oldY = getLayoutY();
-        double oldW = getFitWidth(), oldH = getFitHeight();
+        double oldX = getLayoutX();
+        double oldY = getLayoutY();
+        double oldW = getFitWidth();
+        double oldH = getFitHeight();
+
         double w = Math.max(newWidth, 30);
         double h = Math.max(newHeight, 30);
+
+        double newX = oldX;
+        double newY = oldY;
+
+        switch (anchor) {
+            case "NW": // фиксируем SE
+                newX = oldX + oldW - w;
+                newY = oldY + oldH - h;
+                break;
+            case "NE": // фиксируем SW
+                newX = oldX;
+                newY = oldY + oldH - h;
+                break;
+            case "SW": // фиксируем NE
+                newX = oldX + oldW - w;
+                newY = oldY;
+                break;
+            case "SE": // фиксируем NW
+            default:
+                newX = oldX;
+                newY = oldY;
+                break;
+        }
+
+        setLayoutX(newX);
+        setLayoutY(newY);
         setFitWidth(w);
         setFitHeight(h);
-        if (anchor.equals("NW") || anchor.equals("SW")) setLayoutX(oldX + (oldW - w));
-        if (anchor.equals("NW") || anchor.equals("NE")) setLayoutY(oldY + (oldH - h));
     }
 
     @Override public boolean isResizable() { return true; }
