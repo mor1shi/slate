@@ -79,6 +79,25 @@ public class SyncManager {
         session.getClient().sendCursorMove(canvasId, x, y);
     }
 
+    /**
+     * БАГ-ФИХ: Прикрепляет слушатели изменения текста к элементу, чтобы
+     * изменения синхронизировались в реальном времени, без необходимости
+     * заканчивать редактирование.
+     *
+     * Вызывать для каждого нового элемента — и локального, и удалённого.
+     */
+    public void watchTextChanges(Selectable el) {
+        if (el instanceof customTextField tf) {
+            tf.textProperty().addListener((obs, oldVal, newVal) -> {
+                if (tf.isEditMode()) {
+                    notifyUpdated(tf);
+                }
+            });
+        } else if (el instanceof stickyNote note) {
+            note.attachSyncListener(() -> notifyUpdated(note));
+        }
+    }
+
 
     public void onServerMessage(JSONObject msg) {
         String type = msg.optString("type", "");
@@ -179,11 +198,17 @@ public class SyncManager {
 
     private void serializeLine(Selectable el, JSONObject data) {
         if (el instanceof lineElement line) {
-            data.put("layoutX", line.getLayoutX());
-            data.put("layoutY", line.getLayoutY());
+            data.put("layoutX",     line.getLayoutX());
+            data.put("layoutY",     line.getLayoutY());
             data.put("strokeWidth", line.getStrokeWidth());
+
             Color c = (Color) line.getStroke();
             data.put("color", colorToHex(c));
+            // БАГ-ФИХ: сохраняем прозрачность из alpha-канала цвета обводки.
+            // colorToHex теряет alpha, поэтому сохраняем отдельно.
+            data.put("opacity", c != null ? c.getOpacity() : 1.0);
+
+            // БАГ-ФИХ: сохраняем все точки, чтобы ресайз синхронизировался.
             JSONArray pts = new JSONArray();
             for (Double d : line.getPoints()) pts.put(d);
             data.put("points", pts);
@@ -215,9 +240,13 @@ public class SyncManager {
         if (el instanceof stickyNote note) {
             data.put("x",     note.getLayoutX());
             data.put("y",     note.getLayoutY());
-            data.put("width", note.getPrefWidth());
-            data.put("text",  note.getText());
-            data.put("color", colorToHex(note.getNoteColor()));
+            // БАГ-ФИХ: ширина И высота — чтобы ресайз синхронизировался
+            data.put("width",  note.getPrefWidth());
+            data.put("height", note.getPrefHeight());
+            data.put("text",   note.getText());
+            // БАГ-ФИХ: сохраняем заголовок заметки
+            data.put("title",  note.getTitle());
+            data.put("color",  colorToHex(note.getNoteColor()));
         }
     }
 
@@ -228,6 +257,15 @@ public class SyncManager {
         data.put("y",      img.getLayoutY());
         data.put("width",  img.getFitWidth());
         data.put("height", img.getFitHeight());
+
+        // БАГ-ФИХ: если изображение было создано из base64 (url == null),
+        // image.getUrl() вернёт null и данные потеряются.
+        // Используем кешированные данные из imageElement.
+        String cached = img.getCachedImageData();
+        if (cached != null && !cached.isEmpty()) {
+            data.put("imageData", cached);
+            return;
+        }
 
         if (img.getImage() == null) return;
 
@@ -249,7 +287,10 @@ public class SyncManager {
                     default     -> "image/jpeg";
                 };
                 String b64 = Base64.getEncoder().encodeToString(bytes);
-                data.put("imageData", "data:" + mime + ";base64," + b64);
+                String dataUrl = "data:" + mime + ";base64," + b64;
+                data.put("imageData", dataUrl);
+                // кешируем, чтобы последующие сериализации не читали файл повторно
+                img.setCachedImageData(dataUrl);
             } catch (Exception e) {
                 log.warning("Cannot encode image to base64: " + e.getMessage());
             }
@@ -266,7 +307,6 @@ public class SyncManager {
                 case "text"   -> deserializeText(elementId, data);
                 case "figure" -> deserializeFigure(elementId, data);
                 case "note"   -> deserializeNote(elementId, data);
-
                 case "image"  -> deserializeImage(elementId, data);
                 default       -> null;
             };
@@ -279,11 +319,18 @@ public class SyncManager {
     }
 
     private lineElement deserializeLine(String id, JSONObject data) {
+        // БАГ-ФИХ: восстанавливаем opacity из alpha-канала цвета
         Color color = hexToColor(data.optString("color", "#000000"));
+        double opacity = data.optDouble("opacity", 1.0);
+        if (opacity < 0.999) {
+            color = Color.color(color.getRed(), color.getGreen(), color.getBlue(), opacity);
+        }
+
         double width = data.optDouble("strokeWidth", 2.0);
         lineElement line = new lineElement(color, width);
         line.setLayoutX(data.optDouble("layoutX", 0));
         line.setLayoutY(data.optDouble("layoutY", 0));
+
         JSONArray pts = data.optJSONArray("points");
         if (pts != null) {
             Double[] dpts = new Double[pts.length()];
@@ -321,6 +368,10 @@ public class SyncManager {
             hexToColor(data.optString("color", "#FFD60A"))
         );
         note.setText(data.optString("text", ""));
+        // БАГ-ФИХ: восстанавливаем заголовок и размер
+        note.setTitle(data.optString("title", ""));
+        if (data.has("width"))  note.setPrefWidth(data.optDouble("width", 200));
+        if (data.has("height")) note.setPrefHeight(data.optDouble("height", 160));
         return note;
     }
 
@@ -338,7 +389,6 @@ public class SyncManager {
 
         Image image;
         if (imageData.startsWith("data:")) {
-            // base64 data URL → байты → поток
             int commaIdx = imageData.indexOf(',');
             if (commaIdx < 0) return null;
             try {
@@ -349,7 +399,6 @@ public class SyncManager {
                 return null;
             }
         } else {
-            // http/https URL — загружаем напрямую
             try {
                 image = new Image(imageData, true);
             } catch (Exception e) {
@@ -358,35 +407,75 @@ public class SyncManager {
             }
         }
 
-        return new imageElement(image, x, y, w, h);
+        imageElement el = new imageElement(image, x, y, w, h);
+        // БАГ-ФИХ: кешируем данные, чтобы повторная сериализация не падала
+        el.setCachedImageData(imageData);
+        return el;
     }
 
     private void applyDataToElement(Selectable el, JSONObject data) {
         if (data == null) return;
+
         if (el instanceof customTextField tf) {
             tf.setLayoutX(data.optDouble("x", tf.getLayoutX()));
             tf.setLayoutY(data.optDouble("y", tf.getLayoutY()));
             tf.setPrefWidth(data.optDouble("width", tf.getPrefWidth()));
             tf.setPrefHeight(data.optDouble("height", tf.getPrefHeight()));
             tf.setText(data.optString("text", tf.getText()));
+
         } else if (el instanceof figureElement fig) {
             fig.setX(data.optDouble("x", fig.getX()));
             fig.setY(data.optDouble("y", fig.getY()));
             fig.setWidth(data.optDouble("width", fig.getWidth()));
             fig.setHeight(data.optDouble("height", fig.getHeight()));
+            // БАГ-ФИХ: применяем цвет фигуры при удалённом обновлении
+            if (data.has("color")) {
+                fig.setFillColor(hexToColor(data.optString("color")));
+            }
+
         } else if (el instanceof stickyNote note) {
             note.setLayoutX(data.optDouble("x", note.getLayoutX()));
             note.setLayoutY(data.optDouble("y", note.getLayoutY()));
             note.setText(data.optString("text", note.getText()));
+            // БАГ-ФИХ: применяем заголовок
+            if (data.has("title")) note.setTitle(data.optString("title"));
+            // БАГ-ФИХ: применяем новый размер при ресайзе
+            if (data.has("width"))  note.setPrefWidth(data.optDouble("width", note.getPrefWidth()));
+            if (data.has("height")) note.setPrefHeight(data.optDouble("height", note.getPrefHeight()));
+
         } else if (el instanceof lineElement line) {
             line.setLayoutX(data.optDouble("layoutX", line.getLayoutX()));
             line.setLayoutY(data.optDouble("layoutY", line.getLayoutY()));
+
+            // БАГ-ФИХ: применяем цвет с прозрачностью
+            if (data.has("color")) {
+                Color c = hexToColor(data.optString("color"));
+                double opacity = data.optDouble("opacity", 1.0);
+                if (opacity < 0.999) {
+                    c = Color.color(c.getRed(), c.getGreen(), c.getBlue(), opacity);
+                }
+                line.setStroke(c);
+            }
+            if (data.has("strokeWidth")) {
+                line.setStrokeWidth(data.optDouble("strokeWidth", line.getStrokeWidth()));
+            }
+
+            // БАГ-ФИХ: применяем точки, чтобы ресайз синхронизировался
+            JSONArray pts = data.optJSONArray("points");
+            if (pts != null && pts.length() > 0) {
+                Double[] dpts = new Double[pts.length()];
+                for (int i = 0; i < pts.length(); i++) dpts[i] = pts.getDouble(i);
+                line.getPoints().setAll(dpts);
+            }
+
         } else if (el instanceof imageElement img) {
-            // БАГ-ФИКС: раньше перемещение/ресайз картинки не применялось у других
             img.setLayoutX(data.optDouble("x", img.getLayoutX()));
             img.setLayoutY(data.optDouble("y", img.getLayoutY()));
             img.setFitWidth(data.optDouble("width", img.getFitWidth()));
             img.setFitHeight(data.optDouble("height", img.getFitHeight()));
+            // Обновляем кеш, если пришли новые данные изображения
+            String newData = data.optString("imageData", "");
+            if (!newData.isEmpty()) img.setCachedImageData(newData);
         }
     }
 

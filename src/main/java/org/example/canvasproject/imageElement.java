@@ -10,14 +10,22 @@ import javafx.scene.image.ImageView;
 import java.util.UUID;
 
 /**
- * Фотография как элемент доски
+ * Фотография как элемент доски.
  *
- * Реализуем тот же интерфейс Selectable — и фото сразу умеет выделяться,
- * двигаться, ресайзиться и удаляться через общий SelectionManager
+ * БАГ-ФИХ: добавлено поле cachedImageData для хранения base64/URL исходного
+ * изображения. Это нужно потому что JavaFX Image, созданный из InputStream,
+ * возвращает null из getUrl() — и повторная сериализация теряла данные,
+ * из-за чего фото не сохранялись при перезагрузке канваса.
  */
 public class imageElement extends ImageView implements Selectable {
 
     private final String id = UUID.randomUUID().toString();
+
+    /**
+     * Кешированные данные изображения (base64 data URL или http URL).
+     * Устанавливается при десериализации и при первом кодировании файла.
+     */
+    private String cachedImageData;
 
     public imageElement(Image image, double x, double y, double width, double height) {
         super(image);
@@ -28,6 +36,12 @@ public class imageElement extends ImageView implements Selectable {
         setPreserveRatio(false);
         setCursor(Cursor.HAND);
     }
+
+    /** Возвращает кешированные данные для повторной сериализации. */
+    public String getCachedImageData() { return cachedImageData; }
+
+    /** Устанавливает кешированные данные (вызывается при десериализации). */
+    public void setCachedImageData(String data) { this.cachedImageData = data; }
 
     @Override public String getElementId() { return id; }
     @Override public String getType() { return "image"; }
@@ -58,19 +72,19 @@ public class imageElement extends ImageView implements Selectable {
         double newY = oldY;
 
         switch (anchor) {
-            case "NW": // фиксируем SE
+            case "NW":
                 newX = oldX + oldW - w;
                 newY = oldY + oldH - h;
                 break;
-            case "NE": // фиксируем SW
+            case "NE":
                 newX = oldX;
                 newY = oldY + oldH - h;
                 break;
-            case "SW": // фиксируем NE
+            case "SW":
                 newX = oldX + oldW - w;
                 newY = oldY;
                 break;
-            case "SE": // фиксируем NW
+            case "SE":
             default:
                 newX = oldX;
                 newY = oldY;
@@ -87,12 +101,16 @@ public class imageElement extends ImageView implements Selectable {
 
     private static class State implements ElementMemento {
         final double x, y, w, h;
-        State(double x, double y, double w, double h) { this.x = x; this.y = y; this.w = w; this.h = h; }
+        final String cachedImageData;
+        State(double x, double y, double w, double h, String cached) {
+            this.x = x; this.y = y; this.w = w; this.h = h;
+            this.cachedImageData = cached;
+        }
     }
 
     @Override
     public ElementMemento save() {
-        return new State(getLayoutX(), getLayoutY(), getFitWidth(), getFitHeight());
+        return new State(getLayoutX(), getLayoutY(), getFitWidth(), getFitHeight(), cachedImageData);
     }
 
     @Override
@@ -102,5 +120,7 @@ public class imageElement extends ImageView implements Selectable {
         setLayoutY(s.y);
         setFitWidth(s.w);
         setFitHeight(s.h);
+        // Восстанавливаем кеш, чтобы сериализация после undo работала корректно
+        if (s.cachedImageData != null) this.cachedImageData = s.cachedImageData;
     }
 }

@@ -71,22 +71,21 @@ public class RegisterController {
     }
 
     private void onRegisterSuccess(JSONObject msg) {
-        successLabel.setText("Аккаунт создан! Переходим к входу...");
-        successLabel.setVisible(true);
-        errorLabel.setVisible(false);
-
-        // Через 1.5 сек переходим на логин
-        javafx.animation.PauseTransition pause = new javafx.animation.PauseTransition(
-            javafx.util.Duration.seconds(1.5)
-        );
-        pause.setOnFinished(e -> goBackToLogin());
-        pause.play();
+        javafx.application.Platform.runLater(() -> {
+            successLabel.setText("Аккаунт создан! Переходим к входу...");
+            successLabel.setVisible(true);
+            errorLabel.setVisible(false);
+            javafx.animation.PauseTransition pause = new javafx.animation.PauseTransition(
+                    javafx.util.Duration.seconds(1.5)
+            );
+            pause.setOnFinished(e -> goBackToLogin());
+            pause.play();
+        });
     }
-
     private void goBackToLogin() {
         try {
             FXMLLoader loader = new FXMLLoader(
-                getClass().getResource("/org/example/canvasproject/login.fxml")
+                    getClass().getResource("/login.fxml")
             );
             AnchorPane root = loader.load();
             Stage stage = (Stage) registerBtn.getScene().getWindow();

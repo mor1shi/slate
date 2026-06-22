@@ -175,7 +175,11 @@ public class controller {
         remoteCursors = new RemoteCursorOverlay(canvasGroup);
         syncManager.setCursorCallback(remoteCursors::update);
 
-        syncManager.setOnElementAdded(selection::attachInteraction);
+        syncManager.setOnElementAdded(el -> {
+            selection.attachInteraction(el);
+            // БАГ-ФИХ: подключаем реалтайм слушатель текста для удалённых элементов
+            syncManager.watchTextChanges(el);
+        });
 
         selection.setOnElementDeleted(el -> {
             if (syncManager != null) syncManager.notifyDeleted(el);
@@ -632,7 +636,11 @@ public class controller {
                     tf.setFontSize(fontSize);
                     tf.setFontColor(fontColor);
                     selection.add(tf);
-                    if (syncManager != null) syncManager.notifyAdded(tf);
+                    if (syncManager != null) {
+                        syncManager.notifyAdded(tf);
+                        // БАГ-ФИХ: подключаем реалтайм слушатель для локального текста
+                        syncManager.watchTextChanges(tf);
+                    }
                 }
                 case FIGURE -> {
                     figureElement fig = new figureElement(figureType, x - 60, y - 45, 120, 90, figureColor);
@@ -643,7 +651,11 @@ public class controller {
                     stickyNote note = new stickyNote(x, y, noteColor);
                     note.setFontSize(fontSize);
                     selection.add(note);
-                    if (syncManager != null) syncManager.notifyAdded(note);
+                    if (syncManager != null) {
+                        syncManager.notifyAdded(note);
+                        // БАГ-ФИХ: подключаем реалтайм слушатель для локальной заметки
+                        syncManager.watchTextChanges(note);
+                    }
                 }
                 case PEN -> {
                     selection.clearSelection();
