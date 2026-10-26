@@ -21,7 +21,10 @@ public class LoginController {
     @FXML private Button        loginBtn;
     @FXML private Button        registerLink;
 
-    private static final String SERVER_URL = "ws://localhost:8765";
+    private static final String SERVER_URL = System.getProperty(
+            "canvas.server.url",
+            System.getenv().getOrDefault("WS_URL", "ws://localhost:8765")
+    );
 
     @FXML
     public void initialize() {

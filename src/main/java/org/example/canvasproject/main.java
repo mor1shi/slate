@@ -17,7 +17,7 @@ public class main extends Application {
 
         AnchorPane root = loader.load();
         Scene scene = new Scene(root, 520, 480);
-        stage.setTitle("Canvas App — Вход");
+        stage.setTitle("Canvas App - Вход");
         stage.setScene(scene);
 
         stage.setResizable(true);

@@ -30,7 +30,6 @@ public class stickyNote extends VBox implements Selectable {
     private boolean editMode = false;
     private SelectionOverlay activeOverlay;
 
-    // БАГ-ФИХ: колбэк для синхронизации текста в реальном времени
     private Runnable syncListener;
 
     public stickyNote(double x, double y, Color color) {
@@ -64,10 +63,7 @@ public class stickyNote extends VBox implements Selectable {
         heightProperty().addListener((o, ov, nv) -> { if (activeOverlay != null) activeOverlay.refresh(); });
     }
 
-    /**
-     * БАГ-ФИХ: прикрепляем слушатель для синхронизации текста в реальном времени.
-     * SyncManager вызывает этот метод сразу после создания/загрузки элемента.
-     */
+
     public void attachSyncListener(Runnable listener) {
         this.syncListener = listener;
         bodyArea.textProperty().addListener((obs, oldVal, newVal) -> {
