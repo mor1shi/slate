@@ -59,6 +59,9 @@
     <Button fx:id="menuBtn" layoutX="15.0" layoutY="15.0"
             styleClass="menu-btn" onAction="#toggleNavPanel"/>
 
+    <Label fx:id="connectionLabel" text="● В сети" styleClass="connection-badge"
+           AnchorPane.topAnchor="18.0" AnchorPane.rightAnchor="18.0"/>
+
     <Canvas fx:id="canvas" height="1080.0" width="1920.0"/>
     <VBox alignment="BOTTOM_CENTER"
           AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">

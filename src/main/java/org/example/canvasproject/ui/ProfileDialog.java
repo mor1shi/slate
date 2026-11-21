@@ -40,7 +40,6 @@ public class ProfileDialog {
             return;
         }
 
-        Consumer<JSONObject> previousHandler = session.getClient().getMessageHandler();
         String[] selectedColor = { session.getColor().isBlank() ? PALETTE[0] : session.getColor() };
         String[] avatarData    = { session.getAvatar() };
 
@@ -167,7 +166,7 @@ public class ProfileDialog {
         saveBtn.getStyleClass().add("primary-btn");
         saveBtn.setMaxWidth(Double.MAX_VALUE);
 
-        session.getClient().setMessageHandler(msg -> {
+        Consumer<JSONObject> listener = msg -> {
             String type = msg.optString("type");
             if ("PROFILE_UPDATED".equals(type)) {
                 session.setProfile(msg.optString("username"), msg.optString("color"), msg.optString("avatar"));
@@ -178,10 +177,9 @@ public class ProfileDialog {
                 feedback.setText(msg.optString("message", "Не удалось сохранить"));
                 feedback.setVisible(true);
                 feedback.setManaged(true);
-            } else if (previousHandler != null) {
-                previousHandler.accept(msg);
             }
-        });
+        };
+        session.addMessageListener(listener);
 
         saveBtn.setOnAction(e -> {
             String name = nameField.getText().trim();
@@ -209,9 +207,7 @@ public class ProfileDialog {
         dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
-        Runnable restore = () -> {
-            if (previousHandler != null) session.getClient().setMessageHandler(previousHandler);
-        };
+        Runnable restore = () -> session.removeMessageListener(listener);
         dialog.setOnCloseRequest(e -> restore.run());
         dialog.showAndWait();
         restore.run();

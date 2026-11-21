@@ -59,6 +59,7 @@ public class controller {
     @FXML private Button      homeBtn, inviteBtn, resizeBtn, exportBtn;
     @FXML private Button      backgroundBtn, zoomInBtn, zoomOutBtn, resetZoomBtn;
     @FXML private Button      undoBtn, redoBtn, clearBtn;
+    @FXML private Label       connectionLabel;
 
     private GraphicsContext gc;
 
@@ -104,6 +105,8 @@ public class controller {
 
     private SyncManager syncManager;
     private RemoteCursorOverlay remoteCursors;
+    private final java.util.function.Consumer<org.json.JSONObject> serverMessageListener =
+            this::handleServerMessage;
 
     private int canvasWidth  = 1920;
     private int canvasHeight = 1080;
@@ -194,27 +197,69 @@ public class controller {
         });
 
         if (session.isConnected()) {
-            session.getClient().setMessageHandler(msg -> {
-                String type = msg.optString("type", "");
-                switch (type) {
-                    case "ELEMENT_ADDED", "ELEMENT_DELETED", "ELEMENT_UPDATED",
-                         "CURSOR_MOVED"  -> syncManager.onServerMessage(msg);
-                    case "USER_JOINED"   -> showToast(msg.optString("username") + " присоединился", false);
-                    case "USER_UPDATED"  -> remoteCursors.updateProfile(
-                            msg.optString("userId"),
-                            msg.optString("username"),
-                            msg.optString("color", ""));
-                    case "USER_LEFT"     -> remoteCursors.remove(msg.optString("userId"));
-                    case "INVITE_CODE"   -> {}
-                    case "CANVAS_DELETED"-> onCanvasDeletedWhileViewing();
-                }
-            });
             syncManager.setSyncEnabled(true);
         }
+
+        session.addMessageListener(serverMessageListener);
+        session.setConnectionLostListener(() -> updateConnection(false));
+        updateConnection(session.isConnected());
 
         if (navCanvasName != null) navCanvasName.setText(session.getActiveCanvasName());
         if (navCanvasSize != null) navCanvasSize.setText(canvasWidth + "×" + canvasHeight + " px");
         applyRolePermissions(session);
+    }
+
+    /** Все сообщения доски идут через один диспетчер сессии; обработчик не подменяется. */
+    private void handleServerMessage(org.json.JSONObject msg) {
+        SessionManager session = SessionManager.getInstance();
+        String type = msg.optString("type", "");
+        switch (type) {
+            case "ELEMENT_ADDED", "ELEMENT_DELETED", "ELEMENT_UPDATED", "CURSOR_MOVED" ->
+                    syncManager.onServerMessage(msg);
+            case "AUTH_OK" -> rejoinAfterReconnect();
+            case "JOINED_CANVAS" -> {
+                if (msg.optString("canvasId").equals(session.getActiveCanvasId())) {
+                    resyncBoard(msg);
+                }
+            }
+            case "USER_JOINED" -> showToast(msg.optString("username") + " в сети", false);
+            case "USER_UPDATED" -> remoteCursors.updateProfile(
+                    msg.optString("userId"),
+                    msg.optString("username"),
+                    msg.optString("color", ""));
+            case "USER_LEFT" -> remoteCursors.remove(msg.optString("userId"));
+            case "ERROR" -> showToast(msg.optString("message", "Ошибка сервера"), true);
+            case "CANVAS_DELETED" -> onCanvasDeletedWhileViewing();
+            default -> { }
+        }
+    }
+
+    private void rejoinAfterReconnect() {
+        SessionManager session = SessionManager.getInstance();
+        if (session.isConnected() && session.getActiveCanvasId() != null) {
+            session.getClient().joinCanvas(session.getActiveCanvasId());
+        }
+    }
+
+    /** После реконнекта сервер присылает доску целиком: заменяем локальную копию. */
+    private void resyncBoard(org.json.JSONObject msg) {
+        int w = msg.optInt("canvasWidth", canvasWidth);
+        int h = msg.optInt("canvasHeight", canvasHeight);
+        setCanvasSize(w, h);
+
+        if (selection != null) selection.clearSelection();
+        for (Selectable el : new ArrayList<>(model.elements())) model.remove(el);
+
+        initFromServer(msg.optJSONArray("elements"));
+        updateConnection(true);
+        showToast("Связь восстановлена", false);
+    }
+
+    private void updateConnection(boolean online) {
+        if (connectionLabel == null) return;
+        connectionLabel.setText(online ? "● В сети" : "● Нет связи");
+        connectionLabel.getStyleClass().setAll("connection-badge",
+                online ? "connection-online" : "connection-offline");
     }
 
     /** Наблюдатель видит доску, но не может её менять. Сервер это тоже проверяет. */
@@ -336,6 +381,8 @@ public class controller {
     private void onGoHome() {
         closeNavPanel();
         SessionManager session = SessionManager.getInstance();
+        session.removeMessageListener(serverMessageListener);
+        session.setConnectionLostListener(null);
         if (session.isConnected() && session.getActiveCanvasId() != null) {
             session.getClient().leaveCanvas(session.getActiveCanvasId());
         }

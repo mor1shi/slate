@@ -1,5 +1,11 @@
 package org.example.canvasproject.collab;
 
+import org.json.JSONObject;
+
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
+
 /**
  * Глобальное состояние текущей сессии
  * Хранит токен, userId, username, активный canvasId
@@ -18,6 +24,9 @@ public class SessionManager {
     private String activeCanvasName;
     private String activeCanvasRole = "editor";
 
+    private final List<Consumer<JSONObject>> messageListeners = new CopyOnWriteArrayList<>();
+    private volatile Runnable connectionLostListener;
+
     private SessionManager() {}
 
     public static synchronized SessionManager getInstance() {
@@ -32,6 +41,35 @@ public class SessionManager {
 
     public void setClient(CollaborationClient client) {
         this.client = client;
+    }
+
+    /** Единая точка доставки сообщений сервера: переживает пересоздание сокета. */
+    public void dispatch(JSONObject message) {
+        for (Consumer<JSONObject> listener : messageListeners) {
+            try {
+                listener.accept(message);
+            } catch (RuntimeException e) {
+                java.util.logging.Logger.getLogger(SessionManager.class.getName())
+                        .warning("Message listener failed: " + e.getMessage());
+            }
+        }
+    }
+
+    public void addMessageListener(Consumer<JSONObject> listener) {
+        if (listener != null) messageListeners.add(listener);
+    }
+
+    public void removeMessageListener(Consumer<JSONObject> listener) {
+        messageListeners.remove(listener);
+    }
+
+    public void setConnectionLostListener(Runnable listener) {
+        this.connectionLostListener = listener;
+    }
+
+    public void fireConnectionLost() {
+        Runnable listener = connectionLostListener;
+        if (listener != null) listener.run();
     }
 
     public boolean isConnected() {

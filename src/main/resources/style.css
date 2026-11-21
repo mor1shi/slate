@@ -449,3 +449,23 @@
 .nav-btn-danger .ikonli-font-icon {
     -fx-icon-color: -app-danger;
 }
+
+/* Индикатор связи на доске */
+.connection-badge {
+    -fx-background-radius: 999;
+    -fx-padding: 4 10 4 10;
+    -fx-font-size: 11px;
+    -fx-background-color: -app-bg-deep;
+    -fx-border-radius: 999;
+    -fx-border-width: 1;
+}
+
+.connection-online {
+    -fx-text-fill: -app-success;
+    -fx-border-color: #1F6B3A;
+}
+
+.connection-offline {
+    -fx-text-fill: -app-danger;
+    -fx-border-color: #7F2A2A;
+}

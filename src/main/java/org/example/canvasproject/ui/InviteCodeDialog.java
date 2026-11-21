@@ -24,8 +24,6 @@ public class InviteCodeDialog {
             return;
         }
 
-        Consumer<JSONObject> previousHandler = session.getClient().getMessageHandler();
-
         Dialog<Void> dialog = new Dialog<>();
         dialog.initOwner(owner);
         dialog.setTitle("Пригласить участника");
@@ -68,7 +66,7 @@ public class InviteCodeDialog {
         genBtn.getStyleClass().add("primary-btn");
         copyBtn.getStyleClass().add("secondary-btn");
 
-        session.getClient().setMessageHandler(msg -> {
+        Consumer<JSONObject> listener = msg -> {
             String type = msg.optString("type");
             if ("INVITE_CODE".equals(type)) {
                 String code  = msg.optString("code");
@@ -87,7 +85,8 @@ public class InviteCodeDialog {
                 codeLabel.setText("Ошибка");
                 expiryLabel.setText(msg.optString("message"));
             }
-        });
+        };
+        session.addMessageListener(listener);
 
         genBtn.setOnAction(e -> {
             codeLabel.setText("Генерация…");
@@ -110,11 +109,9 @@ public class InviteCodeDialog {
         dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
-        dialog.setOnCloseRequest(e -> {
-            if (previousHandler != null) session.getClient().setMessageHandler(previousHandler);
-        });
+        dialog.setOnCloseRequest(e -> session.removeMessageListener(listener));
 
         dialog.showAndWait();
-        if (previousHandler != null) session.getClient().setMessageHandler(previousHandler);
+        session.removeMessageListener(listener);
     }
 }

@@ -86,11 +86,16 @@ public class CanvasListController {
         showEmpty(true, false);
 
         if (session.isConnected() && session.getClient() != null) {
-            session.getClient().setMessageHandler(this::handleMessage);
             authenticate();
         } else {
             connect();
         }
+
+        java.util.function.Consumer<org.json.JSONObject> listener = this::handleMessage;
+        session.addMessageListener(listener);
+        cardsPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene == null) session.removeMessageListener(listener);
+        });
     }
 
 
@@ -108,13 +113,14 @@ public class CanvasListController {
         setStatus("Подключение к серверу…", false);
         try {
             CollaborationClient client = new CollaborationClient(serverUrl());
-            client.setMessageHandler(this::handleMessage);
+            client.setMessageHandler(session::dispatch);
             client.setOnConnected(() -> {
                 connecting = false;
                 authenticate();
             });
             client.setOnDisconnected(reason -> {
                 connecting = false;
+                session.fireConnectionLost();
                 if (switchingIdentity) return;
                 setStatus("Нет связи с сервером. Повторяю подключение…", true);
                 scheduleReconnect();
@@ -200,7 +206,10 @@ public class CanvasListController {
                 showInfo("Доска удалена");
                 session.getClient().listCanvases();
             }
-            case "JOINED_CANVAS" -> openCanvas(msg);
+            case "JOINED_CANVAS" -> {
+                // Пока открыта доска, её сообщения обрабатывает controller (реконнект).
+                if (session.getActiveCanvasId() == null) openCanvas(msg);
+            }
             case "ERROR" -> {
                 String message = msg.optString("message", "Неизвестная ошибка");
                 if (message.toLowerCase().contains("authenticated")) {
