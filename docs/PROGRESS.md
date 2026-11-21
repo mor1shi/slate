@@ -42,6 +42,15 @@ JAVA_HOME=/usr/lib/jvm/openjdk21 \
 сборки `clean verify` зелёные. Интеграционный тест создаёт пользователей,
 доски и приглашения в `canvas_collab_test` и очищает её до и после прогона.
 
+### Коммиты фазы 0
+
+| Коммит | Что |
+|---|---|
+| `58d6f0a` | `chore: import Slate baseline with test-enabled build` |
+| `7f4ed79` | `docs: add phase 0 audit, decisions, protocol and progress` |
+| `d5474a6` | `test: add client and server regression safety net` |
+| `6a74f7a` | `ci: build client and server with MongoDB integration tests` |
+
 ### Ограничения приёмки
 
 - GitHub Actions не запускался: репозиторий локальный, remote отсутствует.
