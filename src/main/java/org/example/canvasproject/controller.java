@@ -57,8 +57,7 @@ public class controller {
     @FXML private Label       navCanvasName;
     @FXML private Label       navCanvasSize;
     @FXML private Button      homeBtn, inviteBtn, resizeBtn, exportBtn;
-    @FXML private Button      backgroundBtn, zoomInBtn, zoomOutBtn, resetZoomBtn;
-    @FXML private Button      undoBtn, redoBtn, clearBtn;
+    @FXML private Button      backgroundBtn, gridBtn, zoomInBtn, zoomOutBtn, resetZoomBtn;    @FXML private Button      undoBtn, redoBtn, clearBtn;
     @FXML private Label       connectionLabel;
 
     private GraphicsContext gc;
@@ -120,7 +119,7 @@ public class controller {
 
         gridCanvas = new Canvas(canvas.getWidth(), canvas.getHeight());
         gridCanvas.setMouseTransparent(true);
-        canvasGroup.getChildren().addAll(gridCanvas, canvas);
+        canvasGroup.getChildren().addAll(canvas, gridCanvas);
 
         pane.getChildren().add(0, canvasGroup);
 
@@ -284,7 +283,7 @@ public class controller {
         }
         if (toolbarPanel != null) toolbarPanel.hide();
         selection.setEditable(false);
-        Button[] extra = {resizeBtn, backgroundBtn};
+        Button[] extra = {resizeBtn, backgroundBtn, gridBtn};
         for (Button b : extra) {
             if (b != null) b.setDisable(true);
         }
@@ -408,11 +407,12 @@ public class controller {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/canvas-list.fxml"));
             AnchorPane root   = loader.load();
             Stage stage       = (Stage) pane.getScene().getWindow();
-            stage.setScene(new Scene(root, 960, 640));
+            double w = stage.getWidth(), h = stage.getHeight();
+            stage.setScene(new Scene(root, w, h));
             stage.setTitle("Slate — Мои доски");
             stage.setResizable(true);
-            stage.setMinWidth(700);
-            stage.setMinHeight(480);
+            stage.setMinWidth(820);
+            stage.setMinHeight(540);
         } catch (Exception e) {
             showToast("Ошибка перехода на главную: " + e.getMessage(), true);
         }
@@ -431,38 +431,80 @@ public class controller {
     @FXML
     private void onResizeCanvas() {
         closeNavPanel();
+        SessionManager session = SessionManager.getInstance();
+        if (session.isViewer()) {
+            showToast(org.example.canvasproject.i18n.I18n.t("toast.viewerDenied"), true);
+            return;
+        }
+
         javafx.scene.control.Dialog<int[]> dialog = new javafx.scene.control.Dialog<>();
-        dialog.setTitle("Изменить размер канваса");
-        dialog.setHeaderText("Текущий размер: " + canvasWidth + "×" + canvasHeight);
-        dialog.getDialogPane().getButtonTypes().addAll(
-            javafx.scene.control.ButtonType.OK, javafx.scene.control.ButtonType.CANCEL);
+        dialog.setTitle(org.example.canvasproject.i18n.I18n.t("dialog.resize.title"));
+        dialog.setHeaderText(org.example.canvasproject.i18n.I18n.t(
+                "dialog.resize.header", canvasWidth, canvasHeight));
+        dialog.setGraphic(null);
+        dialog.getDialogPane().setMinWidth(400);
+        dialog.getDialogPane().getStylesheets().add(
+                getClass().getResource("/style-auth.css").toExternalForm());
+        javafx.scene.control.ButtonType okType = new javafx.scene.control.ButtonType(
+                org.example.canvasproject.i18n.I18n.t("button.save"),
+                javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+        javafx.scene.control.ButtonType cancelType = new javafx.scene.control.ButtonType(
+                org.example.canvasproject.i18n.I18n.t("button.cancel"),
+                javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(okType, cancelType);
 
         javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
         grid.setHgap(10); grid.setVgap(10);
+        grid.setPrefWidth(360);
         grid.setPadding(new javafx.geometry.Insets(20));
 
         javafx.scene.control.TextField wf = new javafx.scene.control.TextField(String.valueOf(canvasWidth));
         javafx.scene.control.TextField hf = new javafx.scene.control.TextField(String.valueOf(canvasHeight));
-        grid.add(new javafx.scene.control.Label("Ширина (px):"), 0, 0); grid.add(wf, 1, 0);
-        grid.add(new javafx.scene.control.Label("Высота (px):"),  0, 1); grid.add(hf, 1, 1);
-        grid.add(new javafx.scene.control.Label("400–4000"), 0, 2, 2, 1);
+        wf.setPrefWidth(200);
+        hf.setPrefWidth(200);
+        grid.add(new javafx.scene.control.Label(
+                org.example.canvasproject.i18n.I18n.t("dialog.resize.width")), 0, 0); grid.add(wf, 1, 0);
+        grid.add(new javafx.scene.control.Label(
+                org.example.canvasproject.i18n.I18n.t("dialog.resize.height")), 0, 1); grid.add(hf, 1, 1);
+        grid.add(new javafx.scene.control.Label(
+                org.example.canvasproject.i18n.I18n.t("dialog.resize.range")), 0, 2, 2, 1);
+        javafx.scene.control.Label error = new javafx.scene.control.Label();
+        error.getStyleClass().add("error-label");
+        error.setVisible(false);
+        error.setManaged(false);
+        grid.add(error, 0, 3, 2, 1);
         dialog.getDialogPane().setContent(grid);
 
-        dialog.setResultConverter(btn -> {
-            if (btn != javafx.scene.control.ButtonType.OK) return null;
+        javafx.scene.Node okButton = dialog.getDialogPane().lookupButton(okType);
+        okButton.getStyleClass().add("primary-btn");
+        okButton.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
+            error.setVisible(false);
+            error.setManaged(false);
             try {
-                int w = Math.max(400, Math.min(4000, Integer.parseInt(wf.getText().trim())));
-                int h = Math.max(300, Math.min(4000, Integer.parseInt(hf.getText().trim())));
-                return new int[]{w, h};
-            } catch (NumberFormatException e) { return null; }
+                int w = Integer.parseInt(wf.getText().trim());
+                int h = Integer.parseInt(hf.getText().trim());
+                if (w < 400 || w > 4000 || h < 300 || h > 4000) {
+                    error.setText(org.example.canvasproject.i18n.I18n.t("dialog.resize.invalid"));
+                    error.setVisible(true);
+                    error.setManaged(true);
+                    ev.consume();
+                }
+            } catch (NumberFormatException ex) {
+                error.setText(org.example.canvasproject.i18n.I18n.t("dialog.create.numberInvalid"));
+                error.setVisible(true);
+                error.setManaged(true);
+                ev.consume();
+            }
+        });
+
+        dialog.setResultConverter(btn -> {
+            if (btn != okType) return null;
+            return new int[]{
+                    Integer.parseInt(wf.getText().trim()),
+                    Integer.parseInt(hf.getText().trim())};
         });
 
         dialog.showAndWait().ifPresent(size -> {
-            SessionManager session = SessionManager.getInstance();
-            if (session.isViewer()) {
-                showToast("В режиме просмотра размер менять нельзя", true);
-                return;
-            }
             String canvasId = session.getActiveCanvasId();
             if (canvasId == null || session.getClient() == null) return;
             session.getClient().resizeCanvas(canvasId, size[0], size[1]);
@@ -563,6 +605,21 @@ public class controller {
         updateWorkspaceBackground();
         if (showGrid) drawGrid();
         closeNavPanel();
+    }
+
+    @FXML
+    private void onToggleGrid() {
+        showGrid = !showGrid;
+        if (showGrid) {
+            drawGrid();
+        } else {
+            gridCanvas.getGraphicsContext2D().clearRect(
+                    0, 0, gridCanvas.getWidth(), gridCanvas.getHeight());
+        }
+        if (gridBtn != null) {
+            gridBtn.setText(org.example.canvasproject.i18n.I18n.t(
+                    showGrid ? "nav.grid.hide" : "nav.grid.show"));
+        }        closeNavPanel();
     }
 
     @FXML
@@ -784,6 +841,9 @@ public class controller {
                         selection.clearSelection();
                     }
                     e.consume();
+                } else if (e.isControlDown() && e.getCode() == KeyCode.G) {
+                    onToggleGrid();
+                    e.consume();
                 } else if (e.isControlDown() && e.getCode() == KeyCode.E) {
                     onExportPng();
                     e.consume();
@@ -856,6 +916,10 @@ public class controller {
             if (isNavOpen || e.getButton() != MouseButton.PRIMARY) return;
             if (currentMode != Mode.PEN || currentLine == null) return;
             if (currentLine.pointCount() >= 2) {
+                selection.addSilently(currentLine);
+                if (syncManager != null) syncManager.notifyAdded(currentLine);
+            } else if (currentLine.pointCount() == 1) {
+                currentLine.ensureDot();
                 selection.addSilently(currentLine);
                 if (syncManager != null) syncManager.notifyAdded(currentLine);
             } else {
@@ -1034,6 +1098,7 @@ public class controller {
         configureIconButton(resizeBtn, "crop", "Изменить размер", "Изменить размер холста");
         configureIconButton(exportBtn, "download", "Экспорт PNG", "Экспортировать в PNG");
         configureIconButton(backgroundBtn, "moon", "Цвет холста", "Переключить цвет холста");
+        configureIconButton(gridBtn, "grid", "Сетка", "Показать или скрыть сетку (Ctrl+G)");
         configureIconButton(zoomInBtn, "zoom-in", "Увеличить", "Увеличить масштаб");
         configureIconButton(zoomOutBtn, "zoom-out", "Уменьшить", "Уменьшить масштаб");
         configureIconButton(resetZoomBtn, "rotate-ccw", "Сбросить масштаб", "Сбросить масштаб");

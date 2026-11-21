@@ -33,6 +33,14 @@ public class lineElement extends Polyline implements Selectable {
 
     public int pointCount() { return getPoints().size() / 2; }
 
+    /** Одиночный клик пером: две почти совпавшие точки дают круглый оттиск. */
+    public void ensureDot() {
+        if (pointCount() != 1) return;
+        double x = getPoints().get(0);
+        double y = getPoints().get(1);
+        getPoints().addAll(x + 0.01, y + 0.01);
+    }
+
     @Override public String getElementId() { return id; }
     @Override public String getType() { return "line"; }
     @Override public Node getNode() { return this; }

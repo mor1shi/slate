@@ -23,6 +23,7 @@ import org.example.canvasproject.collab.AppSettings;
 import org.example.canvasproject.collab.CollaborationClient;
 import org.example.canvasproject.collab.DeviceIdentity;
 import org.example.canvasproject.collab.SessionManager;
+import org.example.canvasproject.i18n.I18n;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -35,12 +36,16 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Список досок. Экран открывается сразу после запуска: устройство
  * аутентифицируется своим ключом, регистрация не нужна.
  */
 public class CanvasListController {
+
+    private static final Logger log = Logger.getLogger(CanvasListController.class.getName());
 
     @FXML private Label      deviceLabel;
     @FXML private Label      countLabel;
@@ -260,12 +265,18 @@ public class CanvasListController {
 
     private void createCanvas() {
         Dialog<JSONObject> dialog = new Dialog<>();
-        dialog.setTitle("Новая доска");
-        dialog.setHeaderText("Параметры новой доски");
+        dialog.setTitle(I18n.t("dialog.create.title"));
+        dialog.setHeaderText(I18n.t("dialog.create.header"));
         dialog.initOwner(getWindow());
         dialog.getDialogPane().getStylesheets().add(
                 getClass().getResource("/style-auth.css").toExternalForm());
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        ButtonType createType = new ButtonType(
+                I18n.t("button.create"),
+                javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelType = new ButtonType(
+                I18n.t("button.cancel"),
+                javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(createType, cancelType);
 
         TextField nameField   = new TextField("Моя доска");
         TextField widthField  = new TextField("1920");
@@ -276,45 +287,68 @@ public class CanvasListController {
         grid.setVgap(12);
         grid.setPadding(new Insets(18, 4, 4, 4));
 
-        grid.add(new Label("Название"), 0, 0);
+        grid.add(new Label(I18n.t("dialog.create.name")), 0, 0);
         grid.add(nameField, 1, 0);
-        grid.add(new Label("Ширина, px"), 0, 1);
+        grid.add(new Label(I18n.t("dialog.create.width")), 0, 1);
         grid.add(widthField, 1, 1);
-        grid.add(new Label("Высота, px"), 0, 2);
+        grid.add(new Label(I18n.t("dialog.create.height")), 0, 2);
         grid.add(heightField, 1, 2);
 
-        Label hint = new Label("От 400 до 4000 px");
+        Label hint = new Label(I18n.t("dialog.create.range"));
         hint.getStyleClass().add("hint-text");
         grid.add(hint, 1, 3);
+
+        Label error = new Label();
+        error.getStyleClass().add("error-label");
+        error.setVisible(false);
+        error.setManaged(false);
+        error.setWrapText(true);
+        grid.add(error, 1, 4);
+
         GridPane.setHgrow(nameField, Priority.ALWAYS);
         nameField.setPrefWidth(240);
 
         dialog.getDialogPane().setContent(grid);
-        dialog.getDialogPane().lookupButton(ButtonType.OK).getStyleClass().add("primary-btn");
+        javafx.scene.Node okButton = dialog.getDialogPane().lookupButton(createType);
+        okButton.getStyleClass().add("primary-btn");
+
+        okButton.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
+            error.setVisible(false);
+            error.setManaged(false);
+            String name = nameField.getText().trim();
+            int w, h;
+            try {
+                w = Integer.parseInt(widthField.getText().trim());
+                h = Integer.parseInt(heightField.getText().trim());
+            } catch (NumberFormatException ex) {
+                error.setText(I18n.t("dialog.create.numberInvalid"));
+                error.setVisible(true);
+                error.setManaged(true);
+                ev.consume();
+                return;
+            }
+            if (name.isEmpty()) {
+                error.setText(I18n.t("dialog.create.nameRequired"));
+                error.setVisible(true);
+                error.setManaged(true);
+                ev.consume();
+                return;
+            }
+            if (w < 400 || h < 300 || w > 4000 || h > 4000) {
+                error.setText(I18n.t("dialog.create.sizeInvalid"));
+                error.setVisible(true);
+                error.setManaged(true);
+                ev.consume();
+            }
+        });
 
         dialog.setResultConverter(btn -> {
-            if (btn != ButtonType.OK) return null;
-            try {
-                String name = nameField.getText().trim();
-                int w = Integer.parseInt(widthField.getText().trim());
-                int h = Integer.parseInt(heightField.getText().trim());
-                if (name.isEmpty()) {
-                    setStatus("Введите название доски", true);
-                    return null;
-                }
-                if (w < 400 || h < 300 || w > 4000 || h > 4000) {
-                    setStatus("Размер: 400–4000 по ширине и высоте", true);
-                    return null;
-                }
-                JSONObject r = new JSONObject();
-                r.put("name", name);
-                r.put("width", w);
-                r.put("height", h);
-                return r;
-            } catch (NumberFormatException e) {
-                setStatus("Размер должен быть числом", true);
-                return null;
-            }
+            if (btn != createType) return null;
+            JSONObject r = new JSONObject();
+            r.put("name", nameField.getText().trim());
+            r.put("width", Integer.parseInt(widthField.getText().trim()));
+            r.put("height", Integer.parseInt(heightField.getText().trim()));
+            return r;
         });
 
         dialog.showAndWait().ifPresent(data -> {
@@ -325,25 +359,51 @@ public class CanvasListController {
     }
 
     private void openServerDialog() {
-        TextInputDialog dialog = new TextInputDialog(AppSettings.serverUrl());
+        textInputDialog(
+                I18n.t("dialog.server.title"),
+                I18n.t("dialog.server.header"),
+                I18n.t("dialog.server.prompt"),
+                AppSettings.serverUrl(),
+                I18n.t("button.save"))
+                .ifPresent(value -> {
+                    String url = value.trim();
+                    if (!url.matches("^wss?://.+")) {
+                        setStatus(I18n.t("dialog.server.invalid"), true);
+                        return;
+                    }
+                    if (url.equals(AppSettings.serverUrl())) return;
+                    AppSettings.setServerUrl(url);
+                    reconnectToServer();
+                });
+    }
+
+    /** Диалог одной строки с локализованными кнопками и общим стилем. */
+    private java.util.Optional<String> textInputDialog(String title, String header,
+                                                       String prompt, String initial,
+                                                       String okLabel) {
+        Dialog<String> dialog = new Dialog<>();
         dialog.initOwner(getWindow());
-        dialog.setTitle("Сервер");
-        dialog.setHeaderText("Адрес WebSocket-сервера");
-        dialog.setContentText("ws:// или wss://");
+        dialog.setTitle(title);
+        dialog.setHeaderText(header);
         dialog.getDialogPane().getStylesheets().add(
                 getClass().getResource("/style-auth.css").toExternalForm());
         dialog.getDialogPane().setGraphic(null);
 
-        dialog.showAndWait().ifPresent(value -> {
-            String url = value.trim();
-            if (!url.matches("^wss?://.+")) {
-                setStatus("Адрес должен начинаться с ws:// или wss://", true);
-                return;
-            }
-            if (url.equals(AppSettings.serverUrl())) return;
-            AppSettings.setServerUrl(url);
-            reconnectToServer();
-        });
+        ButtonType okType = new ButtonType(okLabel, ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelType = new ButtonType(
+                I18n.t("button.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(okType, cancelType);
+
+        TextField field = new TextField(initial);
+        field.setPrefWidth(320);
+        Label label = new Label(prompt);
+        VBox box = new VBox(8, label, field);
+        box.setPadding(new Insets(16, 4, 4, 4));
+        dialog.getDialogPane().setContent(box);
+        dialog.getDialogPane().lookupButton(okType).getStyleClass().add("primary-btn");
+        dialog.setResultConverter(btn -> btn == okType ? field.getText() : null);
+        Platform.runLater(field::requestFocus);
+        return dialog.showAndWait();
     }
 
     /** Переподключение после смены адреса сервера. */
@@ -367,19 +427,17 @@ public class CanvasListController {
     }
 
     private void joinByCode() {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.initOwner(getWindow());
-        dialog.setTitle("Открыть по коду");
-        dialog.setHeaderText("Введите код приглашения");
-        dialog.setContentText("Код:");
-        dialog.getDialogPane().getStylesheets().add(
-                getClass().getResource("/style-auth.css").toExternalForm());
-        dialog.getDialogPane().setGraphic(null);
-        dialog.showAndWait().ifPresent(code -> {
-            if (!code.isBlank()) {
-                session.getClient().joinByCode(code.trim().toUpperCase());
-            }
-        });
+        textInputDialog(
+                I18n.t("dialog.join.title"),
+                I18n.t("dialog.join.header"),
+                I18n.t("dialog.join.prompt"),
+                "",
+                I18n.t("button.open"))
+                .ifPresent(code -> {
+                    if (!code.isBlank()) {
+                        session.getClient().joinByCode(code.trim().toUpperCase());
+                    }
+                });
     }
 
     private void openSelected() {
@@ -396,16 +454,15 @@ public class CanvasListController {
         CanvasItem item = findSelected();
         if (item == null) return;
 
-        TextInputDialog dialog = new TextInputDialog(item.name);
-        dialog.initOwner(getWindow());
-        dialog.setTitle("Переименовать доску");
-        dialog.setHeaderText("Новое название");
-        dialog.getDialogPane().getStylesheets().add(
-                getClass().getResource("/style-auth.css").toExternalForm());
-        dialog.getDialogPane().setGraphic(null);
-        dialog.showAndWait().ifPresent(name -> {
-            if (!name.isBlank()) session.getClient().renameCanvas(item.id, name.trim());
-        });
+        textInputDialog(
+                I18n.t("dialog.rename.title"),
+                I18n.t("dialog.rename.header"),
+                I18n.t("dialog.create.name"),
+                item.name,
+                I18n.t("button.rename"))
+                .ifPresent(name -> {
+                    if (!name.isBlank()) session.getClient().renameCanvas(item.id, name.trim());
+                });
     }
 
     private void deleteSelected() {
@@ -414,14 +471,19 @@ public class CanvasListController {
 
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.initOwner(getWindow());
-        alert.setTitle("Удалить доску");
-        alert.setHeaderText("Удалить «" + item.name + "»?");
-        alert.setContentText("Действие необратимо: элементы доски будут удалены.");
+        alert.setTitle(I18n.t("dialog.delete.title"));
+        alert.setHeaderText(I18n.t("dialog.delete.header", item.name));
+        alert.setContentText(I18n.t("dialog.delete.text"));
         alert.getDialogPane().getStylesheets().add(
                 getClass().getResource("/style-auth.css").toExternalForm());
         alert.getDialogPane().setGraphic(null);
+        ButtonType deleteType = new ButtonType(
+                I18n.t("button.delete"), ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelType = new ButtonType(
+                I18n.t("button.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(deleteType, cancelType);
         alert.showAndWait().ifPresent(btn -> {
-            if (btn == ButtonType.OK) session.getClient().deleteCanvas(item.id);
+            if (btn == deleteType) session.getClient().deleteCanvas(item.id);
         });
     }
 
@@ -627,10 +689,12 @@ public class CanvasListController {
         session.setActiveCanvas(canvasId, canvasName, msg.optString("role", "editor"));
 
         try {
+            log.info("Opening canvas " + canvasId + " (" + canvasName + ")");
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/canvas-view.fxml"));
             AnchorPane root = loader.load();
             var stage = (javafx.stage.Stage) cardsPane.getScene().getWindow();
-            stage.setScene(new Scene(root, 1280, 820));
+            double w = stage.getWidth(), h = stage.getHeight();
+            stage.setScene(new Scene(root, w, h));
             stage.setTitle("Slate — " + canvasName);
             stage.setMinWidth(900);
             stage.setMinHeight(600);
@@ -641,7 +705,9 @@ public class CanvasListController {
                 controller.initFromServer(msg.optJSONArray("elements"));
             }
         } catch (Exception e) {
-            setStatus("Ошибка открытия доски: " + e.getMessage(), true);
+            log.log(Level.WARNING, "Cannot open canvas " + canvasId, e);
+            session.setActiveCanvas(null, null);
+            setStatus("Ошибка открытия доски: " + e.getClass().getSimpleName() + ": " + e.getMessage(), true);
         }
     }
 

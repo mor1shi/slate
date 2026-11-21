@@ -39,6 +39,7 @@
 
         <Label text="ВИД" styleClass="nav-section-label"/>
         <Button fx:id="backgroundBtn" text="Цвет холста" styleClass="nav-btn" onAction="#onToggleBg"/>
+        <Button fx:id="gridBtn" text="Показать сетку" styleClass="nav-btn" onAction="#onToggleGrid"/>
         <Button fx:id="zoomInBtn" text="Увеличить" styleClass="nav-btn" onAction="#onZoomIn"/>
         <Button fx:id="zoomOutBtn" text="Уменьшить" styleClass="nav-btn" onAction="#onZoomOut"/>
         <Button fx:id="resetZoomBtn" text="Сбросить масштаб" styleClass="nav-btn" onAction="#onResetZoom"/>

@@ -13,8 +13,16 @@ import java.nio.file.Paths;
  */
 public final class AppSettings {
 
-    private static final Path DIR  = Paths.get(System.getProperty("user.home"), ".config", "canvasproject");
+    private static final Path DIR = configDir();
     private static final Path FILE = DIR.resolve("settings.json");
+
+    private static Path configDir() {
+        String xdg = System.getenv("XDG_CONFIG_HOME");
+        if (xdg != null && !xdg.isBlank()) {
+            return Paths.get(xdg, "canvasproject");
+        }
+        return Paths.get(System.getProperty("user.home"), ".config", "canvasproject");
+    }
 
     private static String cachedUrl;
 

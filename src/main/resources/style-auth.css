@@ -718,3 +718,27 @@
     -fx-padding: 4 10;
     -fx-background-radius: 6;
 }
+
+/* Сегментированный переключатель роли */
+.role-toggle {
+    -fx-background-color: -app-bg;
+    -fx-border-color: -app-border;
+    -fx-border-width: 1;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-text-fill: -app-muted;
+    -fx-padding: 7 16 7 16;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+}
+.role-toggle:hover {
+    -fx-text-fill: -app-text;
+}
+.role-toggle:selected {
+    -fx-background-color: -app-accent;
+    -fx-border-color: -app-accent;
+    -fx-text-fill: -app-text-strong;
+}
+.role-toggle:selected:hover {
+    -fx-text-fill: -app-text-strong;
+}

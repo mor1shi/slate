@@ -24,6 +24,8 @@ public class main extends Application {
         Scene scene = new Scene(root, 980, 660);
         stage.setTitle("Slate — Мои доски");
         stage.setScene(scene);
+        org.example.canvasproject.ui.WindowState.restore(stage);
+        stage.setOnCloseRequest(e -> org.example.canvasproject.ui.WindowState.save(stage));
 
         var iconUrl = getClass().getResource("/icons/slate.png");
         if (iconUrl != null) {
