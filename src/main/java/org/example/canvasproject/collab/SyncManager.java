@@ -62,7 +62,7 @@ public class SyncManager {
         String canvasId = session.getActiveCanvasId();
         if (canvasId == null) return;
         session.getClient().deleteElement(canvasId, resolveId(el));
-        serverIdMap.remove(el);
+        // id сохраняем: Undo должен вернуть элемент с тем же серверным id.
     }
 
     public void notifyUpdated(Selectable el) {

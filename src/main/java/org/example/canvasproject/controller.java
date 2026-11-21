@@ -14,6 +14,9 @@ import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
@@ -527,15 +530,34 @@ public class controller {
 
     @FXML
     private void onClearAll() {
-        new ArrayList<>(model.elements()).forEach(el -> {
-            model.remove(el);
-            if (syncManager != null) syncManager.notifyDeleted(el);
-        });
+        SessionManager session = SessionManager.getInstance();
+        if (session.isViewer()) {
+            showToast("В режиме просмотра нельзя изменять доску", true);
+            return;
+        }
+        if (model.elements().isEmpty()) return;
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.initOwner(canvas.getScene().getWindow());
+        confirm.setTitle("Очистить доску");
+        confirm.setHeaderText("Удалить все элементы?");
+        confirm.setContentText("Действие можно отменить кнопкой Undo или Ctrl+Z.");
+        confirm.getButtonTypes().setAll(
+                new ButtonType("Очистить", ButtonBar.ButtonData.OK_DONE),
+                new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE));
+        var answer = confirm.showAndWait();
+        if (answer.isEmpty() || answer.get().getButtonData() != ButtonBar.ButtonData.OK_DONE) return;
+
+        ClearBoardCommand clear = new ClearBoardCommand(model,
+                el -> { if (syncManager != null) syncManager.notifyDeleted(el); },
+                el -> { if (syncManager != null) syncManager.notifyAdded(el); });
+        commandManager.execute(clear);
+
         selection.clearSelection();
         fillBackground();
         if (showGrid) drawGrid();
         closeNavPanel();
-        showToast("Всё удалено", false);
+        showToast("Доска очищена. Ctrl+Z — отменить", false);
     }
 
     private void setupToolbarPanel() {
