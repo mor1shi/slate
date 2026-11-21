@@ -126,6 +126,7 @@ public class controller {
 
         model     = new BoardModel(canvasGroup);
         selection = new SelectionManager(canvasGroup, model, commandManager);
+        commandManager.setHistoryListener(this::syncHistoryChange);
 
         fillBackground();
         updateWorkspaceBackground();
@@ -230,8 +231,19 @@ public class controller {
             case "USER_LEFT" -> remoteCursors.remove(msg.optString("userId"));
             case "ERROR" -> showToast(msg.optString("message", "Ошибка сервера"), true);
             case "CANVAS_DELETED" -> onCanvasDeletedWhileViewing();
+            case "CANVAS_RESIZED" -> onCanvasResized(msg);
             default -> { }
         }
+    }
+
+    private void onCanvasResized(org.json.JSONObject msg) {
+        SessionManager session = SessionManager.getInstance();
+        if (!msg.optString("canvasId").equals(session.getActiveCanvasId())) return;
+        int w = msg.optInt("canvasWidth", canvasWidth);
+        int h = msg.optInt("canvasHeight", canvasHeight);
+        setCanvasSize(w, h);
+        CanvasSizeCache.put(session.getActiveCanvasId(), w, h);
+        showToast("Размер доски: " + w + "×" + h, false);
     }
 
     private void rejoinAfterReconnect() {
@@ -271,6 +283,11 @@ public class controller {
             if (b != null) b.setDisable(true);
         }
         if (toolbarPanel != null) toolbarPanel.hide();
+        selection.setEditable(false);
+        Button[] extra = {resizeBtn, backgroundBtn};
+        for (Button b : extra) {
+            if (b != null) b.setDisable(true);
+        }
         if (navCanvasSize != null) {
             navCanvasSize.setText(canvasWidth + "×" + canvasHeight + " px · только просмотр");
         }
@@ -441,10 +458,14 @@ public class controller {
         });
 
         dialog.showAndWait().ifPresent(size -> {
-            setCanvasSize(size[0], size[1]);
-            String canvasId = SessionManager.getInstance().getActiveCanvasId();
-            if (canvasId != null) CanvasSizeCache.put(canvasId, size[0], size[1]);
-            showToast("Размер изменён: " + size[0] + "×" + size[1], false);
+            SessionManager session = SessionManager.getInstance();
+            if (session.isViewer()) {
+                showToast("В режиме просмотра размер менять нельзя", true);
+                return;
+            }
+            String canvasId = session.getActiveCanvasId();
+            if (canvasId == null || session.getClient() == null) return;
+            session.getClient().resizeCanvas(canvasId, size[0], size[1]);
         });
     }
 
@@ -565,12 +586,28 @@ public class controller {
 
     @FXML
     private void onUndo() {
+        if (SessionManager.getInstance().isViewer()) return;
         if (commandManager.undo()) selection.clearSelection();
         closeNavPanel();
     }
 
+    /** Undo/Redo должны менять доску на сервере, а не только локально. */
+    private void syncHistoryChange(command cmd, boolean redo) {
+        if (syncManager == null) return;
+        if (cmd instanceof AddCommand add) {
+            if (redo) syncManager.notifyAdded(add.getElement());
+            else      syncManager.notifyDeleted(add.getElement());
+        } else if (cmd instanceof DeleteCommand del) {
+            if (redo) syncManager.notifyDeleted(del.getElement());
+            else      syncManager.notifyAdded(del.getElement());
+        } else if (cmd instanceof ChangeStateCommand change) {
+            syncManager.notifyUpdated(change.getElement());
+        }
+    }
+
     @FXML
     private void onRedo() {
+        if (SessionManager.getInstance().isViewer()) return;
         if (commandManager.redo()) selection.clearSelection();
         closeNavPanel();
     }

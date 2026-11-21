@@ -214,6 +214,26 @@ public class MongoDBService {
         }
     }
 
+    /** Меняет размер листа. Только владелец и редактор. */
+    public boolean resizeCanvas(String canvasId, int width, int height, String requestingUserId) {
+        try {
+            CanvasDocument canvas = findCanvasById(canvasId);
+            if (canvas == null || !canvas.canEdit(requestingUserId)) return false;
+
+            canvases.updateOne(
+                eq("_id", new ObjectId(canvasId)),
+                combine(
+                    set("canvasWidth", width),
+                    set("canvasHeight", height),
+                    set("updatedAt", System.currentTimeMillis())
+                )
+            );
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public boolean renameCanvas(String canvasId, String newName, String requestingUserId) {
         try {
             CanvasDocument canvas = findCanvasById(canvasId);

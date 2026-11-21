@@ -623,12 +623,6 @@ public class CanvasListController {
 
         int width  = msg.optInt("canvasWidth", msg.optInt("width", pendingWidth));
         int height = msg.optInt("canvasHeight", msg.optInt("height", pendingHeight));
-        if (CanvasSizeCache.has(canvasId)) {
-            width  = CanvasSizeCache.getWidth(canvasId);
-            height = CanvasSizeCache.getHeight(canvasId);
-        } else {
-            CanvasSizeCache.put(canvasId, width, height);
-        }
 
         session.setActiveCanvas(canvasId, canvasName, msg.optString("role", "editor"));
 

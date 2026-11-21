@@ -8,6 +8,17 @@ public class CommandManager {
     private final Deque<command> redoStack = new ArrayDeque<>();
     private static final int MAX_HISTORY = 100;
 
+    /** Вызывается только при undo/redo: обычное выполнение уже синхронизировано. */
+    public interface HistoryListener {
+        void commandReapplied(command cmd, boolean redo);
+    }
+
+    private HistoryListener historyListener;
+
+    public void setHistoryListener(HistoryListener listener) {
+        this.historyListener = listener;
+    }
+
     public void execute(command cmd) {
         cmd.execute();
         undoStack.push(cmd);
@@ -26,6 +37,7 @@ public class CommandManager {
         command cmd = undoStack.pop();
         cmd.undo();
         redoStack.push(cmd);
+        if (historyListener != null) historyListener.commandReapplied(cmd, false);
         return true;
     }
 
@@ -34,6 +46,7 @@ public class CommandManager {
         command cmd = redoStack.pop();
         cmd.execute();
         undoStack.push(cmd);
+        if (historyListener != null) historyListener.commandReapplied(cmd, true);
         return true;
     }
 

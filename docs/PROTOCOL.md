@@ -24,6 +24,7 @@
 | `JOIN_BY_CODE` | `code` | одноразовый код; роль берётся из кода |
 | `LEAVE_CANVAS` | `canvasId` | выход из комнаты; членство и id не проверяются (дефект) |
 | `RENAME_CANVAS` | `canvasId`, `name` | только владелец |
+| `RESIZE_CANVAS` | `canvasId`, `width` 400–4000, `height` 300–4000 | владелец и редактор; наблюдателю `ERROR`, размер не меняется |
 | `DELETE_CANVAS` | `canvasId` | только владелец; удаляет доску и её коды |
 | `GEN_INVITE` | `canvasId`, `role` (`editor`/`viewer`), `hours` 1–24, `maxUses` 1–50 | владелец — editor/viewer; редактор — только viewer |
 | `REVOKE_INVITE` | `canvasId`, `code` | владелец или редактор |
@@ -45,6 +46,7 @@
 | `JOINED_CANVAS` | `canvasId`, `canvasName`, `canvasWidth`, `canvasHeight`, `ownerId`, `role`, `elements` |
 | `LEFT_CANVAS` | — |
 | `CANVAS_RENAMED` | `canvasId`, `name` |
+| `CANVAS_RESIZED` | `canvasId`, `canvasWidth`, `canvasHeight` — всем в комнате, включая инициатора |
 | `CANVAS_DELETED` | `canvasId` |
 | `INVITE_CODE` | `code`, `role`, `maxUses`, `expiresAt` (epoch ms) |
 | `INVITE_REVOKED` | `code`, `canvasId` |

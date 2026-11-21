@@ -11,6 +11,8 @@ public class DeleteCommand implements command {
         this.model = model;
     }
 
+    public Selectable getElement() { return element; }
+
     @Override
     public void execute() { model.remove(element); }
 

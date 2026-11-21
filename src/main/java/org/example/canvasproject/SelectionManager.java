@@ -15,6 +15,7 @@ public class SelectionManager {
 
     private Consumer<Selectable> onElementDeleted;
     private Consumer<Selectable> onElementChanged;
+    private boolean editable = true;
 
     public SelectionManager(Group group, BoardModel model, CommandManager commandManager) {
         this.group = group;
@@ -37,13 +38,17 @@ public class SelectionManager {
     public CommandManager getCommandManager() { return commandManager; }
     public BoardModel getModel() { return model; }
 
+    /** Наблюдателю можно выделять элементы, но нельзя двигать, ресайзить и удалять. */
+    public void setEditable(boolean editable) { this.editable = editable; }
+    public boolean isEditable() { return editable; }
+
     public void attachInteraction(Selectable el) {
         Node node = el.getNode();
         if (node == null) return;
         node.setOnMouseClicked(ev -> {
             if (ev.getButton() != MouseButton.PRIMARY) return;
             if (ev.getClickCount() >= 2 && el.supportsEditMode()) {
-                el.enterEditMode();
+                if (editable) el.enterEditMode();
             } else {
                 select(el);
             }
@@ -64,7 +69,7 @@ public class SelectionManager {
 
     public void select(Selectable el) {
         clearSelection();
-        activeOverlay = new SelectionOverlay(el, this);
+        activeOverlay = new SelectionOverlay(el, this, editable);
         group.getChildren().add(activeOverlay);
         activeOverlay.toFront();
     }
@@ -85,7 +90,7 @@ public class SelectionManager {
     }
 
     public void deleteSelected() {
-        if (activeOverlay == null) return;
+        if (activeOverlay == null || !editable) return;
         Selectable target = activeOverlay.getTarget();
         clearSelection();
         commandManager.execute(new DeleteCommand(target, model));

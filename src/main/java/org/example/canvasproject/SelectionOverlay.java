@@ -18,6 +18,7 @@ public class SelectionOverlay extends Group {
     private final Selectable target;
     private final SelectionManager manager;
     private final CommandManager commandManager;
+    private final boolean editable;
 
     private final Rectangle selectionRect;
     private final Rectangle handleTL, handleTR, handleBL, handleBR;
@@ -31,8 +32,13 @@ public class SelectionOverlay extends Group {
     private boolean resized = false;
 
     public SelectionOverlay(Selectable target, SelectionManager manager) {
+        this(target, manager, true);
+    }
+
+    public SelectionOverlay(Selectable target, SelectionManager manager, boolean editable) {
         this.target = target;
         this.manager = manager;
+        this.editable = editable;
         this.commandManager = manager.getCommandManager();
 
         if (target instanceof customTextField tf) tf.setActiveOverlay(this);
@@ -45,7 +51,7 @@ public class SelectionOverlay extends Group {
         handleBR = buildHandle("SE", Cursor.SE_RESIZE);
 
         getChildren().add(selectionRect);
-        if (target.isResizable()) {
+        if (editable && target.isResizable()) {
             getChildren().addAll(handleTL, handleTR, handleBL, handleBR);
         }
         refresh();
@@ -57,8 +63,10 @@ public class SelectionOverlay extends Group {
         r.setStroke(Color.web(ACCENT_COLOR));
         r.setStrokeWidth(1.5);
         r.getStrokeDashArray().addAll(7.0, 4.0);
-        r.setCursor(Cursor.MOVE);
-        setupDragOnRect(r);
+        if (editable) {
+            r.setCursor(Cursor.MOVE);
+            setupDragOnRect(r);
+        }
         return r;
     }
 

@@ -16,6 +16,8 @@ public class ChangeStateCommand implements command {
         this.after = after;
     }
 
+    public Selectable getElement() { return element; }
+
     @Override
     public void execute() { element.restore(after); }   // redo (и no-op сразу после live-изменения)
 

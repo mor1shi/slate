@@ -11,6 +11,8 @@ public class AddCommand implements command {
         this.model = model;
     }
 
+    public Selectable getElement() { return element; }
+
     @Override
     public void execute() { model.add(element); }
 

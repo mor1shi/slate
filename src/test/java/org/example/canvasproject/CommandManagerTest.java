@@ -79,4 +79,21 @@ class CommandManagerTest {
         assertFalse(manager.canUndo());
         assertFalse(manager.canRedo());
     }
+
+    @Test
+    void historyListenerSeesOnlyUndoAndRedo() {
+        CommandManager manager = new CommandManager();
+        CounterCommand cmd = new CounterCommand(new int[]{0}, 1);
+        StringBuilder events = new StringBuilder();
+        manager.setHistoryListener((c, redo) ->
+                events.append(c == cmd ? "same" : "other").append(redo ? ":redo " : ":undo "));
+
+        manager.execute(cmd);
+        assertEquals("", events.toString(), "обычное выполнение не должно дублироваться");
+
+        manager.undo();
+        manager.redo();
+
+        assertEquals("same:undo same:redo ", events.toString());
+    }
 }

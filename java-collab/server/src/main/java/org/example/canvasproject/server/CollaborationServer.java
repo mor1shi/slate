@@ -142,6 +142,7 @@ public class CollaborationServer extends WebSocketServer {
                 case "JOIN_BY_CODE"   -> handleJoinByCode(conn, msg);
                 case "LEAVE_CANVAS"   -> handleLeaveCanvas(conn, msg);
                 case "RENAME_CANVAS"  -> handleRenameCanvas(conn, msg);
+                case "RESIZE_CANVAS"  -> handleResizeCanvas(conn, msg);
                 case "DELETE_CANVAS"  -> handleDeleteCanvas(conn, msg);
                 case "GEN_INVITE"     -> handleGenInvite(conn, msg);
                 case "REVOKE_INVITE"  -> handleRevokeInvite(conn, msg);
@@ -450,6 +451,32 @@ public class CollaborationServer extends WebSocketServer {
         send(conn, resp);
 
         broadcast(canvasId, conn, resp);
+    }
+
+    private void handleResizeCanvas(WebSocket conn, JSONObject msg) {
+        Session s = requireAuth(conn, msg);
+        if (s == null) return;
+
+        String canvasId = msg.optString("canvasId");
+        int w = Math.max(400, Math.min(4000, msg.optInt("width", 0)));
+        int h = Math.max(300, Math.min(4000, msg.optInt("height", 0)));
+        if (msg.optInt("width", 0) <= 0 || msg.optInt("height", 0) <= 0) {
+            send(conn, error("Некорректный размер холста"));
+            return;
+        }
+
+        boolean ok = mongo.resizeCanvas(canvasId, w, h, s.userId);
+        if (!ok) {
+            send(conn, error("Только редактор может изменять доску"));
+            return;
+        }
+
+        JSONObject resp = new JSONObject();
+        resp.put("type",         "CANVAS_RESIZED");
+        resp.put("canvasId",     canvasId);
+        resp.put("canvasWidth",  w);
+        resp.put("canvasHeight", h);
+        broadcast(canvasId, null, resp);
     }
 
     private void handleDeleteCanvas(WebSocket conn, JSONObject msg) {

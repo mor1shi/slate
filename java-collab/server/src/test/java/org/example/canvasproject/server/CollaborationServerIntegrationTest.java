@@ -254,6 +254,53 @@ class CollaborationServerIntegrationTest {
         }
     }
 
+    @Test
+    void canvasSizeIsStoredBroadcastAndProtectedFromViewers() throws Exception {
+        TestClient owner = TestClient.connect(server.getPort());
+        TestClient viewer = TestClient.connect(server.getPort());
+        try {
+            owner.auth("Владелец размера");
+            viewer.auth("Наблюдатель размера");
+            String canvasId = owner.createCanvas("Размер");
+            owner.join(canvasId);
+
+            String code = owner.generateInvite(canvasId, "viewer", 1);
+            viewer.sendJson(new JSONObject().put("type", "JOIN_BY_CODE").put("code", code));
+            viewer.await("JOINED_CANVAS");
+            owner.await("USER_JOINED");
+            viewer.drain();
+
+            owner.sendJson(new JSONObject()
+                    .put("type", "RESIZE_CANVAS")
+                    .put("canvasId", canvasId)
+                    .put("width", 2400)
+                    .put("height", 1400));
+
+            JSONObject resized = owner.await("CANVAS_RESIZED");
+            assertEquals(2400, resized.getInt("canvasWidth"));
+            assertEquals(1400, resized.getInt("canvasHeight"));
+            assertEquals(2400, viewer.await("CANVAS_RESIZED").getInt("canvasWidth"));
+
+            // Наблюдателю размер менять нельзя.
+            viewer.sendJson(new JSONObject()
+                    .put("type", "RESIZE_CANVAS")
+                    .put("canvasId", canvasId)
+                    .put("width", 1000)
+                    .put("height", 1000));
+            assertTrue(viewer.await("ERROR").getString("message").contains("редактор"));
+            viewer.assertNoMessage("CANVAS_RESIZED", 400);
+
+            // Размер сохранился на сервере и приходит при следующем входе.
+            owner.sendJson(new JSONObject().put("type", "JOIN_CANVAS").put("canvasId", canvasId));
+            JSONObject rejoined = owner.await("JOINED_CANVAS");
+            assertEquals(2400, rejoined.getInt("canvasWidth"));
+            assertEquals(1400, rejoined.getInt("canvasHeight"));
+        } finally {
+            owner.close();
+            viewer.close();
+        }
+    }
+
     private static JSONObject addElement(String canvasId, String id, String type, JSONObject data) {
         return new JSONObject()
                 .put("type", "ADD_ELEMENT")

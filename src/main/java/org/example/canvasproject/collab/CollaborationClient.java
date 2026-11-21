@@ -146,6 +146,16 @@ public class CollaborationClient extends WebSocketClient {
         sendMessage(msg);
     }
 
+    public void resizeCanvas(String canvasId, int width, int height) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",     "RESIZE_CANVAS");
+        msg.put("token",    savedToken);
+        msg.put("canvasId", canvasId);
+        msg.put("width",    width);
+        msg.put("height",   height);
+        sendMessage(msg);
+    }
+
     public void deleteCanvas(String canvasId) {
         JSONObject msg = new JSONObject();
         msg.put("type",     "DELETE_CANVAS");
