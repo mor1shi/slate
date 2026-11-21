@@ -1,0 +1,10 @@
+package org.example.canvasproject;
+
+/**
+ * Маркерный интерфейс «снимка состояния» элемента паттерн Memento
+ *
+ * У каждого типа элемента свой класс-снимок (например, хранит x/y/width/height/text)
+ * Команда ChangeStateCommand хранит снимок «до» и «после» и умеет откатывать/повторять
+ */
+public interface ElementMemento {
+}

@@ -1,0 +1,451 @@
+/*
+ * Slate — design tokens и стили рабочей области.
+ * Палитра построена вокруг цвета панели инструментов из версии v1.0.0 (#2E2E2E).
+ * Правила: 4px сетка отступов, радиусы 8/12/14, один акцент (светлый монохром),
+ * состояния hover/pressed/focus заданы явно, без полупрозрачных заливок на кнопках.
+ */
+
+.root {
+    /* Поверхности */
+    -app-bg: #2E2E2E;          /* основной цвет приложения = панель инструментов v1.0.0 */
+    -app-bg-deep: #262626;     /* углублённые области, поля ввода */
+    -app-surface: #2E2E2E;     /* карточки, панели */
+    -app-surface-raised: #363636; /* hover-поверхность */
+    -app-surface-pressed: #333333;
+    -app-border: #474747;
+    -app-border-strong: #5E5E5E;
+
+    /* Текст */
+    -app-text: #E8E8E8;
+    -app-text-strong: #FFFFFF;
+    -app-muted: #9C9C9C;
+    -app-faint: #7A7A7A;
+
+    /* Акцент: светлый монохром вместо цветных градиентов */
+    -app-accent: #E6E6E6;
+    -app-accent-hover: #FFFFFF;
+    -app-accent-ink: #1A1A1A;
+
+    /* Статусы */
+    -app-danger: #EF4444;
+    -app-success: #22C55E;
+    -app-warning: #F59E0B;
+
+    -fx-background-color: -app-bg;
+    -fx-font-family: "Source Sans Pro";
+    -fx-font-size: 13px;
+    -fx-font-smoothing-type: gray;
+    -fx-accent: -app-accent;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Рабочая область                                                     */
+/* ------------------------------------------------------------------ */
+
+.pane {
+    -fx-background-color: -app-bg;
+}
+
+.pane.canvas-surround-dark {
+    -fx-background-color: -app-bg;
+}
+
+.pane.canvas-surround-light {
+    -fx-background-color: #FFFFFF;
+}
+
+/* Панель инструментов из v1.0.0: 365×70, радиус 10, шаг кнопок 15 px */
+.hbox {
+    -fx-min-width: 365px;
+    -fx-pref-width: 365px;
+    -fx-max-width: 365px;
+    -fx-min-height: 70px;
+    -fx-pref-height: 70px;
+    -fx-max-height: 70px;
+    -fx-background-color: -app-surface;
+    -fx-background-radius: 10;
+    -fx-border-color: #3E3E3E;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.32), 18, 0.05, 0, 5);
+}
+
+.penBtn,
+.txtBtn,
+.figureBtn,
+.imgBtm,
+.noteBtn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 10;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-position: center;
+    -fx-background-repeat: no-repeat;
+    -fx-background-size: 34px 34px;
+    -fx-cursor: hand;
+    -fx-effect: none;
+}
+
+.penBtn    { -fx-background-image: url("img/penBtn2x.png"); }
+.txtBtn    { -fx-background-image: url("img/txtBtn2x.png"); }
+.figureBtn { -fx-background-image: url("img/figures@2x.png"); }
+.imgBtm    { -fx-background-image: url("img/img@2x.png"); }
+.noteBtn   { -fx-background-image: url("img/note@2x.png"); }
+
+.penBtn:hover,
+.txtBtn:hover,
+.figureBtn:hover,
+.imgBtm:hover,
+.noteBtn:hover {
+    -fx-background-color: #3A3A3A;
+}
+
+.penBtn:pressed,
+.txtBtn:pressed,
+.figureBtn:pressed,
+.imgBtm:pressed,
+.noteBtn:pressed {
+    -fx-background-color: #333333;
+}
+
+.penBtn:focused,
+.txtBtn:focused,
+.figureBtn:focused,
+.imgBtm:focused,
+.noteBtn:focused {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-effect: none;
+}
+
+/* Кнопка меню (бургер) */
+.menu-btn {
+    -fx-min-width: 44px;
+    -fx-pref-width: 44px;
+    -fx-max-width: 44px;
+    -fx-min-height: 44px;
+    -fx-pref-height: 44px;
+    -fx-max-height: 44px;
+    -fx-padding: 0;
+    -fx-alignment: CENTER;
+    -fx-background-color: -app-surface-raised;
+    -fx-background-radius: 12;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.28), 12, 0, 0, 3);
+}
+
+/* Solid-фон: панель не должна просвечивать при наведении */
+.menu-btn:hover {
+    -fx-background-color: #3F3F3F;
+    -fx-border-color: -app-border-strong;
+}
+
+.menu-btn:pressed {
+    -fx-background-color: -app-surface-pressed;
+    -fx-border-color: -app-border;
+}
+
+.menu-btn:focused {
+    -fx-background-color: -app-surface-raised;
+    -fx-border-color: -app-border-strong;
+    -fx-effect: none;
+}
+
+.tool-btn:disabled,
+.menu-btn:disabled {
+    -fx-opacity: 0.42;
+}
+
+/* Кнопки нижнего дока: у них классы инструментов, а не .tool-btn */
+.hbox .button:disabled,
+.hbox .button:disabled:hover {
+    -fx-opacity: 0.3;
+    -fx-cursor: default;
+}
+
+.button:focused {
+    -fx-effect: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Боковая навигация                                                   */
+/* ------------------------------------------------------------------ */
+
+.nav-panel {
+    -fx-background-color: #292929;
+    -fx-padding: 66 14 20 14;
+    -fx-spacing: 4;
+    -fx-border-color: -app-border;
+    -fx-border-width: 0 1 0 0;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.4), 24, 0, 6, 0);
+}
+
+.nav-canvas-title {
+    -fx-text-fill: -app-text;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 0 0 2;
+    -fx-wrap-text: true;
+}
+
+.nav-canvas-size {
+    -fx-text-fill: -app-muted;
+    -fx-font-size: 12px;
+    -fx-padding: 0 0 8 2;
+}
+
+.nav-section-label {
+    -fx-text-fill: -app-faint;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 10 0 4 4;
+}
+
+.nav-btn,
+.nav-btn-accent,
+.nav-btn-danger {
+    -fx-background-radius: 8;
+    -fx-padding: 8 10;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-pref-width: 252px;
+    -fx-min-height: 38px;
+    -fx-graphic-text-gap: 10;
+}
+
+.nav-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -app-text;
+}
+
+.nav-btn:hover {
+    -fx-background-color: #343434;
+}
+
+.nav-btn:pressed {
+    -fx-background-color: -app-surface-pressed;
+}
+
+.nav-btn-accent {
+    -fx-background-color: #343434;
+    -fx-text-fill: -app-text-strong;
+    -fx-border-color: -app-border;
+}
+
+.nav-btn-accent:hover {
+    -fx-background-color: #3F3F3F;
+    -fx-border-color: -app-border-strong;
+}
+
+.nav-btn-danger {
+    -fx-background-color: transparent;
+    -fx-text-fill: -app-danger;
+}
+
+.nav-btn-danger:hover {
+    -fx-background-color: #3A2525;
+    -fx-text-fill: #FF7A7A;
+}
+
+.nav-btn:focused,
+.nav-btn-accent:focused,
+.nav-btn-danger:focused {
+    -fx-border-color: -app-border-strong;
+    -fx-border-width: 1;
+    -fx-effect: none;
+}
+
+.nav-separator .line {
+    -fx-border-color: -app-border;
+    -fx-border-width: 1 0 0 0;
+}
+
+.nav-version-label {
+    -fx-text-fill: -app-faint;
+    -fx-font-size: 11px;
+    -fx-padding: 4 0 0 4;
+}
+
+/* ------------------------------------------------------------------ */
+/* Контекстная панель инструментов (ToolbarPanel)                      */
+/* ------------------------------------------------------------------ */
+
+.tool-panel {
+    -fx-background-color: -app-surface;
+    -fx-background-radius: 10;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.34), 16, 0.05, 0, 4);
+}
+
+.tool-label {
+    -fx-text-fill: -app-muted;
+    -fx-font-size: 11px;
+}
+
+.tool-value {
+    -fx-text-fill: -app-text;
+    -fx-font-family: "DejaVu Sans Mono";
+    -fx-font-size: 11px;
+    -fx-min-width: 34px;
+}
+
+.tool-hint {
+    -fx-text-fill: -app-muted;
+    -fx-font-size: 12px;
+}
+
+.tool-sep {
+    -fx-background-color: -app-border;
+}
+
+/* Чипы размеров: активный статус — линия снизу, без заливки и рамки */
+.tool-chip {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8 8 0 0;
+    -fx-border-color: transparent transparent transparent transparent;
+    -fx-border-width: 0 0 2 0;
+    -fx-border-radius: 0;
+    -fx-text-fill: #B8B8B8;
+    -fx-font-size: 11px;
+    -fx-padding: 4 8;
+    -fx-cursor: hand;
+}
+
+.tool-chip:hover {
+    -fx-background-color: -app-surface-raised;
+    -fx-text-fill: -app-text;
+}
+
+.tool-chip-active {
+    -fx-text-fill: -app-text-strong;
+    -fx-border-color: transparent transparent -app-accent transparent;
+}
+
+/* Плитки фигур: активная — та же линия снизу */
+.figure-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-border-color: transparent;
+    -fx-border-width: 0 0 2 0;
+    -fx-border-radius: 0;
+    -fx-cursor: hand;
+}
+
+.figure-btn:hover {
+    -fx-background-color: -app-surface-raised;
+}
+
+.figure-btn-active {
+    -fx-border-color: transparent transparent -app-accent transparent;
+}
+
+.figure-btn-label {
+    -fx-text-fill: #B8B8B8;
+    -fx-font-size: 10px;
+}
+
+.tool-slider {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.tool-slider .track {
+    -fx-background-color: #4A4A4A;
+    -fx-background-radius: 2;
+    -fx-pref-height: 4;
+}
+
+.tool-slider .thumb {
+    -fx-background-color: -app-accent;
+    -fx-background-radius: 8;
+    -fx-pref-width: 13;
+    -fx-pref-height: 13;
+}
+
+.tool-slider .thumb:hover {
+    -fx-background-color: -app-accent-hover;
+}
+
+/* Кастомный цвет: квадратный свотч без стрелки, читается как часть палитры */
+.tool-color-picker {
+    -fx-background-color: transparent;
+    -fx-border-color: #5A5A5A;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 1;
+    -fx-color-label-visible: true;
+    -fx-cursor: hand;
+    -fx-min-width: 26px;
+    -fx-pref-width: 26px;
+    -fx-max-width: 26px;
+    -fx-min-height: 26px;
+    -fx-pref-height: 26px;
+    -fx-max-height: 26px;
+}
+
+.tool-color-picker:hover {
+    -fx-border-color: -app-accent;
+}
+
+.tool-color-picker .color-picker-label {
+    -fx-padding: 1;
+}
+
+.tool-color-picker .color-picker-label .label {
+    -fx-text-fill: transparent;
+}
+
+.tool-color-picker .arrow-button {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-pref-width: 0;
+    -fx-min-width: 0;
+}
+
+.tool-color-picker .arrow {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+/* Палитра цветов */
+.color-dot {
+    -fx-border-color: #5A5A5A;
+    -fx-border-width: 1;
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-cursor: hand;
+}
+
+.color-dot:hover {
+    -fx-border-color: -app-accent;
+}
+
+.color-dot:focused {
+    -fx-border-color: -app-accent;
+    -fx-border-width: 2;
+    -fx-effect: none;
+}
+
+/* Иконки Ikonli/Feather (та же 24px сетка, что у Lucide) */
+.ikonli-font-icon {
+    -fx-icon-color: -app-text;
+}
+
+.nav-btn-accent .ikonli-font-icon {
+    -fx-icon-color: -app-text-strong;
+}
+
+.nav-btn-danger .ikonli-font-icon {
+    -fx-icon-color: -app-danger;
+}

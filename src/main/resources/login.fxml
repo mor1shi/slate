@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.example.canvasproject.ui.LoginController"
+            stylesheets="@style-auth.css"
+            prefWidth="480" prefHeight="440">
+
+    <VBox alignment="CENTER"
+          AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0"
+          AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+
+        <VBox alignment="CENTER" spacing="14" styleClass="auth-card" maxWidth="300">
+            <padding><Insets top="32" right="36" bottom="36" left="36"/></padding>
+
+            <Label text="Вход" styleClass="title-label"/>
+
+            <VBox spacing="10" maxWidth="230">
+                <TextField fx:id="usernameField"
+                           promptText="Имя пользователя"
+                           styleClass="auth-field"
+                           maxWidth="Infinity"/>
+                <PasswordField fx:id="passwordField"
+                               promptText="Пароль"
+                               styleClass="auth-field"
+                               maxWidth="Infinity"/>
+            </VBox>
+
+            <CheckBox fx:id="rememberLoginCheckBox"
+                      text="Запомнить логин на этом устройстве"
+                      styleClass="remember-login"
+                      maxWidth="Infinity"/>
+
+            <Label fx:id="errorLabel" styleClass="error-label" wrapText="true" maxWidth="230"/>
+
+            <Button fx:id="loginBtn" text="Войти"
+                    prefWidth="140" styleClass="primary-btn"/>
+
+            <HBox alignment="CENTER" spacing="4">
+                <Label text="Нет аккаунта?" styleClass="hint-text"/>
+                <Button fx:id="registerLink" text="Регистрация" styleClass="link-btn"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</AnchorPane>

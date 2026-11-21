@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.example.canvasproject.ui.CanvasListController"
+            stylesheets="@style-auth.css"
+            prefWidth="980" prefHeight="660">
+
+    <HBox AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0"
+          AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+
+        <VBox styleClass="sidebar" prefWidth="212" minWidth="212" maxWidth="212">
+
+            <Label text="Slate" styleClass="brand-title"/>
+            <Label fx:id="deviceLabel" styleClass="brand-subtitle" wrapText="true"/>
+
+            <Region prefHeight="18"/>
+
+            <Button fx:id="createBtn" text="Новая доска" styleClass="sidebar-primary"
+                    maxWidth="Infinity"/>
+            <Region prefHeight="6"/>
+            <Button fx:id="joinByCodeBtn" text="Открыть по коду" styleClass="sidebar-btn"
+                    maxWidth="Infinity"/>
+            <Region prefHeight="6"/>
+            <Button fx:id="serverBtn" text="Сервер…" styleClass="sidebar-btn"
+                    maxWidth="Infinity"/>
+
+            <Region prefHeight="14"/>
+            <Separator styleClass="separator"/>
+
+            <Label text="ВЫБРАННАЯ ДОСКА" styleClass="sidebar-section"/>
+
+            <Button fx:id="openBtn" text="Открыть" styleClass="sidebar-btn" maxWidth="Infinity"/>
+            <Region prefHeight="4"/>
+            <Button fx:id="renameBtn" text="Переименовать" styleClass="sidebar-btn" maxWidth="Infinity"/>
+            <Region prefHeight="4"/>
+            <Button fx:id="deleteBtn" text="Удалить" styleClass="sidebar-btn-danger" maxWidth="Infinity"/>
+
+            <Region VBox.vgrow="ALWAYS"/>
+
+            <Button fx:id="profileBtn" text="Профиль" styleClass="sidebar-btn"
+                    maxWidth="Infinity"/>
+            <Region prefHeight="4"/>
+            <Button fx:id="deviceBtn" text="Ключ устройства" styleClass="sidebar-btn"
+                    maxWidth="Infinity"/>
+            <Region prefHeight="4"/>
+            <Button fx:id="quitBtn" text="Закрыть" styleClass="sidebar-btn" maxWidth="Infinity"/>
+        </VBox>
+
+        <VBox HBox.hgrow="ALWAYS" styleClass="content-area" spacing="0">
+
+            <VBox styleClass="content-header" spacing="6">
+                <HBox alignment="CENTER_LEFT" spacing="14">
+                    <Label text="Мои доски" styleClass="page-title"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <TextField fx:id="searchField" promptText="Поиск по названию"
+                               styleClass="search-field"/>
+                </HBox>
+                <Label fx:id="countLabel" styleClass="page-subtitle"/>
+                <Label fx:id="statusLabel" styleClass="status-banner" wrapText="true"
+                       managed="false" visible="false"/>
+            </VBox>
+
+            <StackPane VBox.vgrow="ALWAYS">
+                <ScrollPane fx:id="scrollPane" fitToWidth="true" styleClass="scroll-pane">
+                    <FlowPane fx:id="cardsPane" hgap="16" vgap="16" styleClass="cards-pane"/>
+                </ScrollPane>
+
+                <VBox fx:id="emptyState" alignment="CENTER" spacing="10"
+                      styleClass="empty-state" visible="false" managed="false">
+                    <Label text="Пока пусто" styleClass="empty-title"/>
+                    <Label text="Создайте первую доску — она сохранится за этим устройством и откроется снова после перезапуска."
+                           styleClass="empty-text" wrapText="true" maxWidth="380"/>
+                    <Region prefHeight="6"/>
+                    <Button fx:id="emptyCreateBtn" text="Создать доску" styleClass="primary-btn"/>
+                </VBox>
+            </StackPane>
+        </VBox>
+    </HBox>
+</AnchorPane>

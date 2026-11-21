@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.example.canvasproject.ui.CanvasListController"
+            stylesheets="@style-auth.css"
+            prefWidth="700" prefHeight="500">
+
+    <VBox spacing="12"
+          AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0"
+          AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+
+        <padding><Insets top="24" right="32" bottom="24" left="32"/></padding>
+
+        <!-- Шапка -->
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <Label fx:id="welcomeLabel" styleClass="title-label" HBox.hgrow="ALWAYS"/>
+            <Button fx:id="logoutBtn" text="Выйти" styleClass="secondary-btn"/>
+        </HBox>
+
+        <Separator/>
+
+        <!-- Тулбар -->
+        <HBox spacing="10">
+            <Button fx:id="createBtn"    text="+ Новый канвас"   styleClass="primary-btn"/>
+            <Button fx:id="joinByCodeBtn" text="Войти по коду"   styleClass="secondary-btn"/>
+            <Button fx:id="openBtn"      text="Открыть"          styleClass="primary-btn"/>
+        </HBox>
+
+        <!-- Список -->
+        <ListView fx:id="canvasList" VBox.vgrow="ALWAYS" styleClass="canvas-list"/>
+
+        <!-- Статус -->
+        <Label fx:id="statusLabel" styleClass="status-label" wrapText="true"/>
+    </VBox>
+</AnchorPane>

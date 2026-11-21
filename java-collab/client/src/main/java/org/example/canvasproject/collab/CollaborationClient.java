@@ -1,0 +1,217 @@
+package org.example.canvasproject.collab;
+
+import javafx.application.Platform;
+import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.handshake.ServerHandshake;
+import org.json.JSONObject;
+
+import java.net.URI;
+import java.util.function.Consumer;
+import java.util.logging.Logger;
+
+/**
+ * WebSocket-клиент для подключения к серверу совместной работы.
+ *
+ * Использование:
+ *   CollaborationClient client = new CollaborationClient("ws://localhost:8765");
+ *   client.setMessageHandler(msg -> { ... обработка на JavaFX Thread ... });
+ *   client.connect();
+ */
+public class CollaborationClient extends WebSocketClient {
+
+    private static final Logger log = Logger.getLogger(CollaborationClient.class.getName());
+
+    private Consumer<JSONObject> messageHandler;
+    private Runnable onConnected;
+    private Consumer<String> onDisconnected;
+
+    private String savedToken;
+
+    public CollaborationClient(String serverUrl) throws Exception {
+        super(new URI(serverUrl));
+    }
+
+    // ─────────────────── CALLBACKS ───────────────────
+
+    public void setMessageHandler(Consumer<JSONObject> handler) {
+        this.messageHandler = handler;
+    }
+
+    public void setOnConnected(Runnable onConnected) {
+        this.onConnected = onConnected;
+    }
+
+    public void setOnDisconnected(Consumer<String> onDisconnected) {
+        this.onDisconnected = onDisconnected;
+    }
+
+    // ─────────────────── WS EVENTS ───────────────────
+
+    @Override
+    public void onOpen(ServerHandshake handshake) {
+        log.info("Connected to collaboration server");
+        if (onConnected != null) {
+            Platform.runLater(onConnected);
+        }
+    }
+
+    @Override
+    public void onMessage(String message) {
+        if (messageHandler == null) return;
+        try {
+            JSONObject msg = new JSONObject(message);
+            Platform.runLater(() -> messageHandler.accept(msg));
+        } catch (Exception e) {
+            log.warning("Failed to parse message: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void onClose(int code, String reason, boolean remote) {
+        log.info("Disconnected from server. Reason: " + reason);
+        if (onDisconnected != null) {
+            Platform.runLater(() -> onDisconnected.accept(reason));
+        }
+    }
+
+    @Override
+    public void onError(Exception e) {
+        log.warning("WebSocket error: " + e.getMessage());
+    }
+
+    // ─────────────────── SEND HELPERS ───────────────────
+
+    public void sendMessage(JSONObject msg) {
+        if (isOpen()) {
+            send(msg.toString());
+        } else {
+            log.warning("Tried to send message while disconnected: " + msg.optString("type"));
+        }
+    }
+
+    public void register(String username, String email, String password) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",     "REGISTER");
+        msg.put("username", username);
+        msg.put("email",    email);
+        msg.put("password", password);
+        sendMessage(msg);
+    }
+
+    public void login(String username, String password) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",     "LOGIN");
+        msg.put("username", username);
+        msg.put("password", password);
+        sendMessage(msg);
+    }
+
+    public void logout() {
+        JSONObject msg = new JSONObject();
+        msg.put("type",  "LOGOUT");
+        msg.put("token", savedToken);
+        sendMessage(msg);
+        savedToken = null;
+    }
+
+    public void createCanvas(String name) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",  "CREATE_CANVAS");
+        msg.put("token", savedToken);
+        msg.put("name",  name);
+        sendMessage(msg);
+    }
+
+    public void listCanvases() {
+        JSONObject msg = new JSONObject();
+        msg.put("type",  "LIST_CANVASES");
+        msg.put("token", savedToken);
+        sendMessage(msg);
+    }
+
+    public void joinCanvas(String canvasId) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",     "JOIN_CANVAS");
+        msg.put("token",    savedToken);
+        msg.put("canvasId", canvasId);
+        sendMessage(msg);
+    }
+
+    public void joinByCode(String code) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",  "JOIN_BY_CODE");
+        msg.put("token", savedToken);
+        msg.put("code",  code);
+        sendMessage(msg);
+    }
+
+    public void leaveCanvas(String canvasId) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",     "LEAVE_CANVAS");
+        msg.put("token",    savedToken);
+        msg.put("canvasId", canvasId);
+        sendMessage(msg);
+    }
+
+    public void generateInviteCode(String canvasId) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",     "GEN_INVITE");
+        msg.put("token",    savedToken);
+        msg.put("canvasId", canvasId);
+        sendMessage(msg);
+    }
+
+    public void addElement(String canvasId, String elementId, String elementType, JSONObject data) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",        "ADD_ELEMENT");
+        msg.put("token",       savedToken);
+        msg.put("canvasId",    canvasId);
+        msg.put("elementId",   elementId);
+        msg.put("elementType", elementType);
+        msg.put("data",        data);
+        sendMessage(msg);
+    }
+
+    public void deleteElement(String canvasId, String elementId) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",      "DELETE_ELEMENT");
+        msg.put("token",     savedToken);
+        msg.put("canvasId",  canvasId);
+        msg.put("elementId", elementId);
+        sendMessage(msg);
+    }
+
+    public void updateElement(String canvasId, String elementId, JSONObject data) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",      "UPDATE_ELEMENT");
+        msg.put("token",     savedToken);
+        msg.put("canvasId",  canvasId);
+        msg.put("elementId", elementId);
+        msg.put("data",      data);
+        sendMessage(msg);
+    }
+
+    public void sendCursorMove(String canvasId, double x, double y) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",     "CURSOR_MOVE");
+        msg.put("token",    savedToken);
+        msg.put("canvasId", canvasId);
+        msg.put("x", x);
+        msg.put("y", y);
+        sendMessage(msg);
+    }
+
+    // ─────────────────── TOKEN ───────────────────
+
+    public void setToken(String token) {
+        this.savedToken = token;
+    }
+
+    public String getToken() {
+        return savedToken;
+    }
+
+    public boolean isAuthenticated() {
+        return savedToken != null;
+    }
+}

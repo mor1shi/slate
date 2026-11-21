@@ -1,0 +1,720 @@
+/*
+ * Slate — экраны входа, регистрации и списка канвасов.
+ * Та же дизайн-система, что и в style.css: палитра, типографика и состояния
+ * задаются токенами в .root, ни один экран не вводит собственные цвета.
+ */
+
+.root {
+    /* Поверхности */
+    -app-bg: #2E2E2E;
+    -app-bg-deep: #262626;
+    -app-surface: #333333;
+    -app-surface-raised: #3C3C3C;
+    -app-surface-pressed: #2B2B2B;
+    -app-border: #474747;
+    -app-border-strong: #5E5E5E;
+
+    /* Текст */
+    -app-text: #E8E8E8;
+    -app-text-strong: #FFFFFF;
+    -app-muted: #9C9C9C;
+    -app-faint: #7A7A7A;
+
+    /* Акцент и статусы */
+    -app-accent: #E6E6E6;
+    -app-accent-hover: #FFFFFF;
+    -app-accent-ink: #1A1A1A;
+    -app-danger: #EF4444;
+    -app-success: #22C55E;
+    -app-warning: #F59E0B;
+
+    -fx-background-color: -app-bg;
+    -fx-font-family: "Source Sans Pro";
+    -fx-font-size: 13px;
+    -fx-font-smoothing-type: gray;
+    -fx-accent: -app-accent;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Формы входа и регистрации                                           */
+/* ------------------------------------------------------------------ */
+
+.auth-card {
+    -fx-background-color: -app-surface;
+    -fx-background-radius: 14;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 14;
+    -fx-border-width: 1;
+    -fx-padding: 32 36 36 36;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.36), 28, 0.1, 0, 10);
+}
+
+.title-label {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -app-text-strong;
+}
+
+.subtitle-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: -app-muted;
+}
+
+.auth-field {
+    -fx-background-color: -app-bg-deep;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -app-text;
+    -fx-prompt-text-fill: -app-faint;
+    -fx-highlight-fill: -app-accent;
+    -fx-highlight-text-fill: -app-accent-ink;
+    -fx-font-size: 13px;
+    -fx-padding: 10 12;
+    -fx-pref-height: 42px;
+}
+
+.auth-field:focused {
+    -fx-border-color: -app-accent;
+    -fx-effect: dropshadow(gaussian, rgba(230, 230, 230, 0.18), 0, 0, 0, 0);
+}
+
+.remember-login {
+    -fx-text-fill: -app-muted;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+}
+
+.remember-login .box {
+    -fx-background-color: -app-bg-deep;
+    -fx-background-radius: 4;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 4;
+    -fx-border-width: 1;
+}
+
+.remember-login:selected .box {
+    -fx-background-color: -app-accent;
+    -fx-border-color: -app-accent;
+}
+
+.remember-login:selected .mark {
+    -fx-background-color: -app-accent-ink;
+}
+
+.remember-login:focused .box {
+    -fx-border-color: -app-accent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Кнопки: primary — светлая заливка, secondary — контур, danger — красный */
+/* ------------------------------------------------------------------ */
+
+.primary-btn,
+.secondary-btn,
+.danger-btn {
+    -fx-background-radius: 8;
+    -fx-text-fill: -app-text;
+    -fx-font-size: 13px;
+    -fx-padding: 9 18;
+    -fx-cursor: hand;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-pref-height: 40px;
+}
+
+.primary-btn {
+    -fx-background-color: -app-accent;
+    -fx-border-color: -app-accent;
+    -fx-text-fill: -app-accent-ink;
+    -fx-font-weight: bold;
+}
+
+.primary-btn:hover {
+    -fx-background-color: -app-accent-hover;
+    -fx-border-color: -app-accent-hover;
+}
+
+.primary-btn:pressed {
+    -fx-background-color: #CFCFCF;
+    -fx-border-color: #CFCFCF;
+}
+
+.secondary-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: -app-border;
+    -fx-text-fill: -app-text;
+}
+
+.secondary-btn:hover {
+    -fx-background-color: -app-surface-raised;
+    -fx-border-color: -app-border-strong;
+}
+
+.secondary-btn:pressed {
+    -fx-background-color: -app-surface-pressed;
+}
+
+.danger-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: #6B3A3A;
+    -fx-text-fill: -app-danger;
+}
+
+.danger-btn:hover {
+    -fx-background-color: #3A2525;
+    -fx-border-color: #8A4444;
+}
+
+.danger-btn:pressed {
+    -fx-background-color: #332020;
+}
+
+.primary-btn:focused,
+.secondary-btn:focused,
+.danger-btn:focused,
+.link-btn:focused,
+.sidebar-btn:focused,
+.sidebar-btn-danger:focused {
+    -fx-border-color: -app-border-strong;
+    -fx-border-width: 1;
+    -fx-effect: none;
+}
+
+.primary-btn:focused {
+    -fx-border-color: -app-accent-ink;
+}
+
+.button:focused {
+    -fx-effect: none;
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled,
+.danger-btn:disabled,
+.sidebar-btn:disabled,
+.sidebar-btn-danger:disabled {
+    -fx-opacity: 0.42;
+}
+
+.link-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -app-text;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 2 4;
+    -fx-underline: true;
+}
+
+.link-btn:hover {
+    -fx-text-fill: -app-text-strong;
+}
+
+.hint-text {
+    -fx-text-fill: -app-muted;
+    -fx-font-size: 12px;
+}
+
+.meta-label {
+    -fx-text-fill: -app-faint;
+    -fx-font-size: 12px;
+}
+
+.code-label {
+    -fx-font-family: "DejaVu Sans Mono";
+    -fx-font-size: 32px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -app-text-strong;
+    -fx-padding: 4 0;
+}
+
+.error-label {
+    -fx-text-fill: -app-danger;
+    -fx-font-size: 12px;
+}
+
+.success-label {
+    -fx-text-fill: -app-success;
+    -fx-font-size: 12px;
+}
+
+.status-label {
+    -fx-font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Сайдбар списка канвасов                                             */
+/* ------------------------------------------------------------------ */
+
+.sidebar {
+    -fx-background-color: #262626;
+    -fx-padding: 20 14 16 14;
+    -fx-spacing: 4;
+    -fx-border-color: #3A3A3A;
+    -fx-border-width: 0 1 0 0;
+}
+
+.brand-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -app-text-strong;
+    -fx-padding: 2 0 0 2;
+}
+
+.brand-subtitle {
+    -fx-font-size: 11px;
+    -fx-text-fill: -app-faint;
+    -fx-padding: 0 0 0 2;
+}
+
+.sidebar-section {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -app-faint;
+    -fx-padding: 12 0 4 4;
+}
+
+.sidebar-primary {
+    -fx-background-color: -app-accent;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-accent;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -app-accent-ink;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 9 10;
+    -fx-cursor: hand;
+    -fx-alignment: CENTER_LEFT;
+    -fx-min-height: 38px;
+    -fx-graphic-text-gap: 10;
+}
+
+.sidebar-primary:hover {
+    -fx-background-color: -app-accent-hover;
+    -fx-border-color: -app-accent-hover;
+}
+
+.sidebar-primary:pressed {
+    -fx-background-color: #CFCFCF;
+}
+
+.sidebar-primary:focused {
+    -fx-border-color: -app-accent-ink;
+    -fx-effect: none;
+}
+
+.sidebar-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -app-text-strong;
+}
+
+.sidebar-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: -app-muted;
+}
+
+.sidebar-btn,
+.sidebar-btn-danger {
+    -fx-background-radius: 8;
+    -fx-text-fill: -app-text;
+    -fx-font-size: 13px;
+    -fx-padding: 8 10;
+    -fx-cursor: hand;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-min-height: 36px;
+    -fx-graphic-text-gap: 10;
+}
+
+.sidebar-btn {
+    -fx-background-color: transparent;
+}
+
+.sidebar-btn:hover {
+    -fx-background-color: #343434;
+}
+
+.sidebar-btn:pressed {
+    -fx-background-color: -app-surface-pressed;
+}
+
+.sidebar-btn-danger {
+    -fx-background-color: transparent;
+    -fx-text-fill: -app-danger;
+}
+
+.sidebar-btn-danger:hover {
+    -fx-background-color: #3A2525;
+    -fx-text-fill: #FF7A7A;
+}
+
+.logout-button {
+    -fx-background-color: -app-surface-raised;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+    -fx-min-width: 34px;
+    -fx-pref-width: 34px;
+    -fx-min-height: 34px;
+    -fx-pref-height: 34px;
+    -fx-padding: 0;
+}
+
+.logout-button:hover {
+    -fx-background-color: #454545;
+    -fx-border-color: -app-border-strong;
+}
+
+.logout-button:focused {
+    -fx-border-color: -app-accent;
+}
+
+/* Область с карточками */
+.content-area {
+    -fx-background-color: -app-bg;
+    -fx-padding: 0;
+}
+
+.content-header {
+    -fx-padding: 22 24 10 24;
+}
+
+.page-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -app-text-strong;
+}
+
+.page-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: -app-muted;
+}
+
+.search-field {
+    -fx-background-color: -app-bg-deep;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -app-text;
+    -fx-prompt-text-fill: -app-faint;
+    -fx-highlight-fill: -app-accent;
+    -fx-highlight-text-fill: -app-accent-ink;
+    -fx-font-size: 12px;
+    -fx-padding: 7 11;
+    -fx-pref-width: 240px;
+    -fx-pref-height: 34px;
+}
+
+.search-field:focused {
+    -fx-border-color: -app-border-strong;
+}
+
+.status-banner {
+    -fx-background-color: #383838;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -app-text;
+    -fx-font-size: 12px;
+    -fx-padding: 8 12;
+}
+
+.status-banner-error {
+    -fx-background-color: #3A2626;
+    -fx-border-color: #6B3A3A;
+    -fx-text-fill: #FF9A9A;
+}
+
+.empty-state {
+    -fx-padding: 40;
+}
+
+.empty-title {
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -app-text;
+}
+
+.empty-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: -app-muted;
+    -fx-text-alignment: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Карточки канвасов                                                   */
+/* ------------------------------------------------------------------ */
+
+.canvas-card {
+    -fx-background-color: -app-surface;
+    -fx-background-radius: 12;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}
+
+.canvas-card:hover {
+    -fx-background-color: -app-surface-raised;
+    -fx-border-color: -app-border-strong;
+}
+
+.canvas-card-selected {
+    -fx-background-color: -app-surface-raised;
+    -fx-background-radius: 12;
+    -fx-border-color: -app-accent;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}
+
+.canvas-card:focused,
+.canvas-card-selected:focused {
+    -fx-border-color: -app-accent;
+    -fx-effect: none;
+}
+
+.canvas-card-title,
+.canvas-card-title-selected {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-wrap-text: true;
+}
+
+.canvas-card-title {
+    -fx-text-fill: -app-text;
+}
+
+.canvas-card-title-selected {
+    -fx-text-fill: -app-text-strong;
+}
+
+.canvas-card-meta,
+.canvas-card-meta-selected {
+    -fx-font-size: 11px;
+    -fx-font-family: "DejaVu Sans Mono";
+}
+
+.canvas-card-meta {
+    -fx-text-fill: -app-muted;
+}
+
+.canvas-card-meta-selected {
+    -fx-text-fill: #C4C4C4;
+}
+
+.canvas-card-time {
+    -fx-font-size: 11px;
+    -fx-text-fill: -app-faint;
+}
+
+.meta-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: -app-muted;
+}
+
+.device-key-field {
+    -fx-font-family: "DejaVu Sans Mono";
+    -fx-font-size: 11px;
+    -fx-background-color: -app-bg-deep;
+    -fx-text-fill: -app-text;
+    -fx-border-color: -app-border;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-highlight-fill: -app-accent;
+    -fx-highlight-text-fill: -app-accent-ink;
+}
+
+.device-key-field .content {
+    -fx-background-color: -app-bg-deep;
+}
+
+/* ------------------------------------------------------------------ */
+/* Списки и прокрутка                                                  */
+/* ------------------------------------------------------------------ */
+
+.canvas-list {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.canvas-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-padding: 4 8;
+}
+
+.canvas-list .list-cell:selected {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane,
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar:vertical,
+.scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #4A4A4A;
+    -fx-background-radius: 5;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #5E5E5E;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.separator .line {
+    -fx-border-color: -app-border;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Диалоги                                                             */
+/* ------------------------------------------------------------------ */
+
+.dialog-pane {
+    -fx-background-color: -app-surface;
+    -fx-border-color: -app-border;
+    -fx-border-width: 1;
+}
+
+.dialog-pane .header-panel {
+    -fx-background-color: -app-surface;
+}
+
+.dialog-pane .content,
+.dialog-pane .label {
+    -fx-text-fill: -app-text;
+}
+
+.dialog-pane .text-field,
+.dialog-pane .password-field {
+    -fx-background-color: -app-bg-deep;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -app-text;
+    -fx-prompt-text-fill: -app-faint;
+    -fx-padding: 9 11;
+}
+
+.dialog-pane .text-field:focused,
+.dialog-pane .password-field:focused {
+    -fx-border-color: -app-accent;
+}
+
+.dialog-pane .button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -app-text;
+    -fx-padding: 8 14;
+}
+
+.dialog-pane .button:hover {
+    -fx-background-color: -app-surface-raised;
+    -fx-border-color: -app-border-strong;
+}
+
+.dialog-pane .button:default {
+    -fx-background-color: -app-accent;
+    -fx-text-fill: -app-accent-ink;
+    -fx-border-color: -app-accent;
+}
+
+.cards-pane {
+    -fx-background-color: transparent;
+    -fx-padding: 8;
+}
+
+/* --- Профиль ------------------------------------------------------- */
+
+.avatar-frame {
+    -fx-background-color: -app-bg-deep;
+    -fx-background-radius: 38;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 38;
+    -fx-border-width: 1;
+    -fx-padding: 2;
+}
+
+.avatar-fallback {
+    -fx-text-fill: -app-muted;
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+
+.profile-field {
+    -fx-background-color: -app-bg-deep;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -app-text;
+    -fx-prompt-text-fill: -app-faint;
+    -fx-padding: 8 10;
+}
+
+.color-swatch {
+    -fx-min-width: 26;
+    -fx-min-height: 26;
+    -fx-pref-width: 26;
+    -fx-pref-height: 26;
+    -fx-background-radius: 13;
+    -fx-border-radius: 13;
+    -fx-border-color: transparent;
+    -fx-border-width: 2;
+    -fx-cursor: hand;
+}
+
+.color-swatch:selected {
+    -fx-border-color: -app-text-strong;
+}
+
+.color-swatch:hover {
+    -fx-border-color: -app-border-strong;
+}
+
+.color-picker {
+    -fx-background-color: -app-bg-deep;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -app-text;
+}
+
+.cursor-preview {
+    -fx-font-family: "Source Sans Pro";
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 4 10;
+    -fx-background-radius: 6;
+}
