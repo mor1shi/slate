@@ -83,6 +83,8 @@ public class stickyNote extends VBox implements Selectable {
         applyFontSizes();
     }
 
+    public double getFontSize() { return currentFontSize; }
+
     private void applyFontSizes() {
         if (titleField == null || bodyArea == null) return;
         titleField.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; " +

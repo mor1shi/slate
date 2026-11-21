@@ -223,6 +223,8 @@ public class SyncManager {
             data.put("width",  tf.getPrefWidth());
             data.put("height", tf.getPrefHeight());
             data.put("text",   tf.getText());
+            data.put("fontSize",  tf.getFontSize());
+            data.put("fontColor", colorToHex(tf.getFontColor()));
         }
     }
 
@@ -248,6 +250,7 @@ public class SyncManager {
             // БАГ-ФИХ: сохраняем заголовок заметки
             data.put("title",  note.getTitle());
             data.put("color",  colorToHex(note.getNoteColor()));
+            data.put("fontSize", note.getFontSize());
         }
     }
 
@@ -348,6 +351,8 @@ public class SyncManager {
         tf.setPrefWidth(data.optDouble("width", 150));
         tf.setPrefHeight(data.optDouble("height", 40));
         tf.setText(data.optString("text", ""));
+        tf.setFontSize(fontSizeOf(data, 14));
+        tf.setFontColor(fontColorOf(data, Color.BLACK));
         return tf;
     }
 
@@ -371,6 +376,7 @@ public class SyncManager {
         note.setText(data.optString("text", ""));
         // БАГ-ФИХ: восстанавливаем заголовок и размер
         note.setTitle(data.optString("title", ""));
+        note.setFontSize(fontSizeOf(data, 14));
         if (data.has("width"))  note.setPrefWidth(data.optDouble("width", 200));
         if (data.has("height")) note.setPrefHeight(data.optDouble("height", 160));
         return note;
@@ -423,6 +429,8 @@ public class SyncManager {
             tf.setPrefWidth(data.optDouble("width", tf.getPrefWidth()));
             tf.setPrefHeight(data.optDouble("height", tf.getPrefHeight()));
             tf.setText(data.optString("text", tf.getText()));
+            if (data.has("fontSize"))  tf.setFontSize(fontSizeOf(data, tf.getFontSize()));
+            if (data.has("fontColor")) tf.setFontColor(fontColorOf(data, tf.getFontColor()));
 
         } else if (el instanceof figureElement fig) {
             fig.setX(data.optDouble("x", fig.getX()));
@@ -440,6 +448,7 @@ public class SyncManager {
             note.setText(data.optString("text", note.getText()));
             // БАГ-ФИХ: применяем заголовок
             if (data.has("title")) note.setTitle(data.optString("title"));
+            if (data.has("fontSize")) note.setFontSize(fontSizeOf(data, note.getFontSize()));
             // БАГ-ФИХ: применяем новый размер при ресайзе
             if (data.has("width"))  note.setPrefWidth(data.optDouble("width", note.getPrefWidth()));
             if (data.has("height")) note.setPrefHeight(data.optDouble("height", note.getPrefHeight()));
@@ -481,7 +490,24 @@ public class SyncManager {
     }
 
 
-    private String colorToHex(Color color) {
+    /** Общая часть стиля текста: используется и для текста, и для стикера. */
+    public static JSONObject textStyleToJson(double fontSize, Color color) {
+        JSONObject data = new JSONObject();
+        data.put("fontSize", fontSize);
+        data.put("fontColor", colorToHex(color));
+        return data;
+    }
+
+    public static double fontSizeOf(JSONObject data, double fallback) {
+        return data == null ? fallback : data.optDouble("fontSize", fallback);
+    }
+
+    public static Color fontColorOf(JSONObject data, Color fallback) {
+        if (data == null || !data.has("fontColor")) return fallback;
+        return hexToColor(data.optString("fontColor", colorToHex(fallback)));
+    }
+
+    private static String colorToHex(Color color) {
         if (color == null) return "#000000";
         return String.format("#%02X%02X%02X",
             (int)(color.getRed()   * 255),
@@ -489,7 +515,7 @@ public class SyncManager {
             (int)(color.getBlue()  * 255));
     }
 
-    private Color hexToColor(String hex) {
+    private static Color hexToColor(String hex) {
         try { return Color.web(hex); }
         catch (Exception e) { return Color.BLACK; }
     }

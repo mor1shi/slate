@@ -110,4 +110,12 @@ class ElementCodecTest {
         assertEquals(100.0, ((figureElement) restored).getWidth(), 1e-9);
         assertEquals(80.0, ((figureElement) restored).getHeight(), 1e-9);
     }
+
+    @Test
+    void textKeepsFontSizeAndColor() throws Exception {
+        JSONObject data = SyncManager.textStyleToJson(24, Color.web("#FF5500"));
+
+        assertEquals(24.0, SyncManager.fontSizeOf(data, 14), 1e-9);
+        assertEquals(Color.web("#FF5500"), SyncManager.fontColorOf(data, Color.BLACK));
+    }
 }

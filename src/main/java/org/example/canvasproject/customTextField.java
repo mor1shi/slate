@@ -47,6 +47,10 @@ public class customTextField extends TextField implements Selectable {
         else applyNormalStyle();
     }
 
+    public double getFontSize() { return currentFontSize; }
+
+    public Color getFontColor() { return currentFontColor; }
+
     public void setFontColor(Color color) {
         this.currentFontColor = color;
         if (editMode) applyEditStyle();
