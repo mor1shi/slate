@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -117,5 +118,13 @@ class ElementCodecTest {
 
         assertEquals(24.0, SyncManager.fontSizeOf(data, 14), 1e-9);
         assertEquals(Color.web("#FF5500"), SyncManager.fontColorOf(data, Color.BLACK));
+    }
+
+    @Test
+    void onlyInlineImageDataIsAccepted() {
+        assertTrue(SyncManager.isAllowedImageSource("data:image/png;base64,AAAA"));
+        assertFalse(SyncManager.isAllowedImageSource("https://example.com/tracker.png"));
+        assertFalse(SyncManager.isAllowedImageSource("file:///etc/passwd"));
+        assertFalse(SyncManager.isAllowedImageSource(""));
     }
 }

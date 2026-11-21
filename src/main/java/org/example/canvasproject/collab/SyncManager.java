@@ -394,24 +394,21 @@ public class SyncManager {
             return null;
         }
 
+        if (!isAllowedImageSource(imageData)) {
+            // Не ходим по URL, присланным другим участником: это утечка IP и трекинг.
+            log.warning("deserializeImage: refused non-inline image source for " + id);
+            return null;
+        }
+
         Image image;
-        if (imageData.startsWith("data:")) {
-            int commaIdx = imageData.indexOf(',');
-            if (commaIdx < 0) return null;
-            try {
-                byte[] bytes = Base64.getDecoder().decode(imageData.substring(commaIdx + 1));
-                image = new Image(new ByteArrayInputStream(bytes));
-            } catch (Exception e) {
-                log.warning("Cannot decode base64 image: " + e.getMessage());
-                return null;
-            }
-        } else {
-            try {
-                image = new Image(imageData, true);
-            } catch (Exception e) {
-                log.warning("Cannot load image from URL: " + e.getMessage());
-                return null;
-            }
+        int commaIdx = imageData.indexOf(',');
+        if (commaIdx < 0) return null;
+        try {
+            byte[] bytes = Base64.getDecoder().decode(imageData.substring(commaIdx + 1));
+            image = new Image(new ByteArrayInputStream(bytes));
+        } catch (Exception e) {
+            log.warning("Cannot decode base64 image: " + e.getMessage());
+            return null;
         }
 
         imageElement el = new imageElement(image, x, y, w, h);
@@ -489,6 +486,11 @@ public class SyncManager {
         }
     }
 
+
+    /** Картинки принимаются только как встроенные data:image/…, без сетевых URL. */
+    public static boolean isAllowedImageSource(String source) {
+        return source != null && source.startsWith("data:image/");
+    }
 
     /** Общая часть стиля текста: используется и для текста, и для стикера. */
     public static JSONObject textStyleToJson(double fontSize, Color color) {
