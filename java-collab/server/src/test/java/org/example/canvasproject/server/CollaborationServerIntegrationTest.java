@@ -190,6 +190,70 @@ class CollaborationServerIntegrationTest {
         }
     }
 
+    @Test
+    void updateWithoutDataIsRejectedAndKeepsElement() throws Exception {
+        TestClient owner = TestClient.connect(server.getPort());
+        try {
+            owner.auth("Владелец-3");
+            String canvasId = owner.createCanvas("Защита данных");
+            owner.join(canvasId);
+            owner.sendJson(addElement(canvasId, "keep-me", "figure",
+                    new JSONObject().put("x", 10).put("y", 20).put("figureType", "rect")));
+
+            owner.sendJson(new JSONObject()
+                    .put("type", "UPDATE_ELEMENT")
+                    .put("canvasId", canvasId)
+                    .put("elementId", "keep-me"));
+            assertTrue(owner.await("ERROR").getString("message").toLowerCase().contains("data"),
+                    "пустой UPDATE_ELEMENT должен вернуть ошибку");
+
+            // Перечитываем доску: данные не затёрты.
+            owner.sendJson(new JSONObject().put("type", "JOIN_CANVAS").put("canvasId", canvasId));
+            JSONObject joined = owner.await("JOINED_CANVAS");
+            JSONObject element = joined.getJSONArray("elements").getJSONObject(0);
+            assertEquals(10, element.getJSONObject("data").getInt("x"));
+            assertEquals(20, element.getJSONObject("data").getInt("y"));
+        } finally {
+            owner.close();
+        }
+    }
+
+    @Test
+    void leaveCanvasWithWrongIdStillLeavesRealRoom() throws Exception {
+        TestClient owner = TestClient.connect(server.getPort());
+        TestClient guest = TestClient.connect(server.getPort());
+        try {
+            owner.auth("Владелец-4");
+            guest.auth("Гость-4");
+            String canvasId = owner.createCanvas("Выход из комнаты");
+            owner.join(canvasId);
+            String invite = owner.generateInvite(canvasId, "editor", 1);
+            guest.sendJson(new JSONObject().put("type", "JOIN_BY_CODE").put("code", invite));
+            guest.await("JOINED_CANVAS");
+            owner.await("USER_JOINED");
+            owner.drain();
+
+            // Клиент прислал чужой id: выйти нужно из фактической комнаты.
+            guest.sendJson(new JSONObject()
+                    .put("type", "LEAVE_CANVAS")
+                    .put("canvasId", "000000000000000000000000"));
+            assertEquals(canvasId, guest.await("LEFT_CANVAS").getString("canvasId"));
+            owner.await("USER_LEFT");
+
+            owner.sendJson(addElement(canvasId, "after-leave", "figure", new JSONObject()));
+            guest.assertNoMessage("ELEMENT_ADDED", 500);
+
+            // Повторный вход снова даёт живые события.
+            guest.sendJson(new JSONObject().put("type", "JOIN_CANVAS").put("canvasId", canvasId));
+            guest.await("JOINED_CANVAS");
+            owner.sendJson(addElement(canvasId, "after-rejoin", "figure", new JSONObject()));
+            assertEquals("after-rejoin", guest.await("ELEMENT_ADDED").getString("elementId"));
+        } finally {
+            owner.close();
+            guest.close();
+        }
+    }
+
     private static JSONObject addElement(String canvasId, String id, String type, JSONObject data) {
         return new JSONObject()
                 .put("type", "ADD_ELEMENT")

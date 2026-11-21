@@ -376,6 +376,7 @@ public class CollaborationServer extends WebSocketServer {
         }
 
         joinRoom(conn, s, canvasId);
+        s.activeCanvasRole = role;
 
         JSONArray elements = new JSONArray();
         for (CanvasElement el : canvas.getElements()) {
@@ -414,11 +415,17 @@ public class CollaborationServer extends WebSocketServer {
         Session s = requireAuth(conn, msg);
         if (s == null) return;
 
-        String canvasId = msg.optString("canvasId");
-        leaveRoom(conn, s, canvasId, false);
+        String requestedId = msg.optString("canvasId");
+        String leftCanvasId = s.activeCanvasId != null ? s.activeCanvasId : requestedId;
+        // Выходим из фактической комнаты, а не из той, что прислал клиент:
+        // иначе сокет остаётся «призраком» и продолжает получать события.
+        if (s.activeCanvasId != null) {
+            leaveRoom(conn, s, s.activeCanvasId, false);
+        }
 
         JSONObject resp = new JSONObject();
         resp.put("type", "LEFT_CANVAS");
+        resp.put("canvasId", leftCanvasId);
         send(conn, resp);
     }
 
@@ -587,6 +594,10 @@ public class CollaborationServer extends WebSocketServer {
 
         String canvasId  = msg.optString("canvasId");
         String elementId = msg.optString("elementId");
+        if (!msg.has("data") || msg.isNull("data")) {
+            send(conn, error("Поле data обязательно"));
+            return;
+        }
         JSONObject data  = msg.optJSONObject("data");
         if (data == null) data = new JSONObject();
 
@@ -612,10 +623,10 @@ public class CollaborationServer extends WebSocketServer {
 
     private void handleCursorMove(WebSocket conn, JSONObject msg) {
         Session s = requireAuth(conn, msg);
-        if (s == null || s.activeCanvasId == null) return;
+        // Роль закэширована при входе в комнату: не читаем всю доску на каждое
+        // движение мыши.
+        if (s == null || s.activeCanvasId == null || s.activeCanvasRole == null) return;
 
-        CanvasDocument canvas = mongo.findCanvasById(s.activeCanvasId);
-        if (canvas == null || canvas.roleOf(s.userId) == null) return;
         JSONObject broadcast = new JSONObject();
         broadcast.put("type",     "CURSOR_MOVED");
         broadcast.put("userId",   s.userId);
@@ -638,6 +649,7 @@ public class CollaborationServer extends WebSocketServer {
             if (room.isEmpty()) rooms.remove(canvasId);
         }
         if (!disconnect) s.activeCanvasId = null;
+        if (!disconnect) s.activeCanvasRole = null;
         if (s.userId != null) {
             broadcast(canvasId, conn, userEvent("USER_LEFT", s));
         }
@@ -727,6 +739,7 @@ public class CollaborationServer extends WebSocketServer {
         String color;
         String avatar;
         String activeCanvasId;
+        String activeCanvasRole;
         long openedAt;
         long windowStart;
         int windowCount;
