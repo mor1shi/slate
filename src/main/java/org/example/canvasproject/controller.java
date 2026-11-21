@@ -512,19 +512,6 @@ public class controller {
     }
 
     @FXML
-    private void onNewDocument() {
-        new ArrayList<>(model.elements()).forEach(el -> {
-            model.remove(el);
-            if (syncManager != null) syncManager.notifyDeleted(el);
-        });
-        selection.clearSelection();
-        fillBackground();
-        if (showGrid) drawGrid();
-        closeNavPanel();
-        showToast("Холст очищен", false);
-    }
-
-    @FXML
     private void onExportPng() {
         closeNavPanel();
 
@@ -536,12 +523,14 @@ public class controller {
         if (file == null) return;
 
         boolean gridVisible = gridCanvas.isVisible();
+        boolean cursorsVisible = remoteCursors != null;
         double previousZoom = zoomFactor;
         double previousTranslateX = translateX;
         double previousTranslateY = translateY;
         try {
             gridCanvas.setVisible(false);
             selection.setSelectionVisible(false);
+            if (remoteCursors != null) remoteCursors.setVisible(false);
             zoomFactor = 1.0;
             translateX = 0;
             translateY = 0;
@@ -566,6 +555,7 @@ public class controller {
         } finally {
             gridCanvas.setVisible(gridVisible);
             selection.setSelectionVisible(true);
+            if (remoteCursors != null) remoteCursors.setVisible(cursorsVisible);
             zoomFactor = previousZoom;
             translateX = previousTranslateX;
             translateY = previousTranslateY;

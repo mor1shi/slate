@@ -301,6 +301,36 @@ class CollaborationServerIntegrationTest {
         }
     }
 
+    @Test
+    void repeatedAddWithSameIdReplacesInsteadOfDuplicating() throws Exception {
+        TestClient owner = TestClient.connect(server.getPort());
+        try {
+            owner.auth("Владелец дублей");
+            String canvasId = owner.createCanvas("Дубли");
+            owner.join(canvasId);
+
+            owner.sendJson(addElement(canvasId, "same-id", "figure",
+                    new JSONObject().put("v", 1)));
+            owner.sendJson(addElement(canvasId, "same-id", "figure",
+                    new JSONObject().put("v", 2)));
+
+            owner.sendJson(new JSONObject().put("type", "JOIN_CANVAS").put("canvasId", canvasId));
+            JSONObject joined = owner.await("JOINED_CANVAS");
+            var elements = joined.getJSONArray("elements");
+            int matches = 0;
+            for (int i = 0; i < elements.length(); i++) {
+                JSONObject el = elements.getJSONObject(i);
+                if ("same-id".equals(el.getString("elementId"))) {
+                    matches++;
+                    assertEquals(2, el.getJSONObject("data").getInt("v"));
+                }
+            }
+            assertEquals(1, matches, "элемент с одним id должен храниться один раз");
+        } finally {
+            owner.close();
+        }
+    }
+
     private static JSONObject addElement(String canvasId, String id, String type, JSONObject data) {
         return new JSONObject()
                 .put("type", "ADD_ELEMENT")

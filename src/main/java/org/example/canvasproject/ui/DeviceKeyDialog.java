@@ -1,5 +1,6 @@
 package org.example.canvasproject.ui;
 
+import javafx.animation.PauseTransition;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.input.Clipboard;
@@ -7,6 +8,7 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Window;
+import javafx.util.Duration;
 import org.example.canvasproject.collab.DeviceIdentity;
 
 /**
@@ -53,13 +55,26 @@ public class DeviceKeyDialog {
         feedback.setVisible(false);
         feedback.setManaged(false);
 
+        PauseTransition[] clipboardClear = {null};
         copyBtn.setOnAction(e -> {
             ClipboardContent cc = new ClipboardContent();
             cc.putString(identity.getKey());
             Clipboard.getSystemClipboard().setContent(cc);
-            feedback.setText("Ключ скопирован");
+            feedback.setText("Ключ скопирован. Буфер очистится через минуту");
             feedback.setVisible(true);
             feedback.setManaged(true);
+
+            if (clipboardClear[0] != null) clipboardClear[0].stop();
+            PauseTransition clear = new PauseTransition(Duration.seconds(60));
+            clear.setOnFinished(ev -> {
+                Clipboard clipboard = Clipboard.getSystemClipboard();
+                if (identity.getKey().equals(clipboard.getString())) {
+                    clipboard.clear();
+                    feedback.setText("Буфер обмена очищен");
+                }
+            });
+            clipboardClear[0] = clear;
+            clear.play();
         });
 
         useOtherBtn.setOnAction(e -> {

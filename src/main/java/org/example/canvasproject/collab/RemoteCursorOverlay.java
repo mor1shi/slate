@@ -73,6 +73,11 @@ public class RemoteCursorOverlay {
         cursors.clear();
     }
 
+    /** Скрыть чужие курсоры, например на время экспорта PNG. */
+    public void setVisible(boolean visible) {
+        layer.setVisible(visible);
+    }
+
     private Color nextColor() {
         Color c = PALETTE[colorIndex % PALETTE.length];
         colorIndex++;

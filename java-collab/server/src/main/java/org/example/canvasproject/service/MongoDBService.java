@@ -314,12 +314,16 @@ public class MongoDBService {
             .append("addedBy",   element.getAddedBy())
             .append("updatedAt", element.getUpdatedAt());
 
+        // Идемпотентно: элемент с тем же id заменяется, а не дублируется.
+        Document withoutSameId = new Document("$filter", new Document("input", "$elements")
+                .append("as", "el")
+                .append("cond", new Document("$ne", List.of("$$el.elementId", element.getElementId()))));
+        Document newElements = new Document("$concatArrays", List.of(withoutSameId, List.of(elemDoc)));
+
         canvases.updateOne(
             eq("_id", new ObjectId(canvasId)),
-            combine(
-                addToSet("elements", elemDoc),
-                set("updatedAt", System.currentTimeMillis())
-            )
+            List.of(new Document("$set", new Document("elements", newElements)
+                    .append("updatedAt", System.currentTimeMillis())))
         );
     }
 
