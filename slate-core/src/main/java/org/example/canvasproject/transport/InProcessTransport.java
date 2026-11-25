@@ -10,6 +10,12 @@ import java.util.function.Consumer;
  */
 public final class InProcessTransport implements Transport {
 
+    /** Подтверждения собственных изменений не возвращаем: WebSocket-сервер тоже
+     *  не присылает их автору, иначе клиент применил бы элемент дважды. */
+    private static final java.util.Set<String> SELF = java.util.Set.of(
+            "ELEMENT_ADDED", "ELEMENT_UPDATED", "ELEMENT_DELETED",
+            "ELEMENTS_UPDATED", "ELEMENTS_DELETED", "ASSET_STORED");
+
     private final LocalServer server;
     private volatile Consumer<JSONObject> listener;
     private volatile boolean open = true;
@@ -24,7 +30,7 @@ public final class InProcessTransport implements Transport {
         if (!open || message == null) return;
         JSONObject response = server.handle(message);
         Consumer<JSONObject> target = listener;
-        if (response != null && target != null) {
+        if (response != null && target != null && !SELF.contains(response.optString("type"))) {
             target.accept(response);
         }
     }

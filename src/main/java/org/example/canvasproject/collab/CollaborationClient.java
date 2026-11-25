@@ -22,6 +22,8 @@ public class CollaborationClient extends WebSocketClient {
     private Consumer<String> onDisconnected;
 
     private String savedToken;
+    /** Solo-режим: сообщения уходят не в сокет, а в локальный сервер команд. */
+    private org.example.canvasproject.transport.Transport localTransport;
 
     public CollaborationClient(String serverUrl) throws Exception {
         super(new URI(serverUrl));
@@ -83,11 +85,30 @@ public class CollaborationClient extends WebSocketClient {
 
 
     public void sendMessage(JSONObject msg) {
+        org.example.canvasproject.transport.Transport local = localTransport;
+        if (local != null && local.isOpen()) {
+            local.send(msg);
+            return;
+        }
         if (isOpen()) {
             send(msg.toString());
         } else {
             log.warning("Tried to send message while disconnected: " + msg.optString("type"));
         }
+    }
+
+    public void setLocalTransport(org.example.canvasproject.transport.Transport transport) {
+        this.localTransport = transport;
+    }
+
+    public boolean hasLocalTransport() {
+        return localTransport != null;
+    }
+
+    @Override
+    public boolean isOpen() {
+        org.example.canvasproject.transport.Transport local = localTransport;
+        return local != null ? local.isOpen() : super.isOpen();
     }
 
     public void register(String username, String email, String password) {

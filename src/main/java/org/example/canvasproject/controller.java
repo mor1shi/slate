@@ -369,15 +369,41 @@ public class controller {
         SessionManager session = SessionManager.getInstance();
         session.setLocalMode(true);
         session.setActiveCanvas(board.getId(), board.getName(), "owner");
+        wireLocalTransport(session);
 
         setCanvasSize(board.getWidth(), board.getHeight());
         syncManager.loadCanvasElements(board.getElements());
         if (inviteBtn != null) inviteBtn.setDisable(true);
         updateConnection(false);
+        if (connectionLabel != null) {
+            connectionLabel.setText("● Локально");
+            connectionLabel.getStyleClass().setAll("connection-badge", "connection-online");
+        }
 
         localAutosave = new Timeline(new KeyFrame(Duration.seconds(2), e -> saveLocalNow()));
         localAutosave.setCycleCount(Timeline.INDEFINITE);
         localAutosave.play();
+    }
+
+    /** Solo-режим идёт через тот же слой команд и проверки прав, что и сетевой сервер. */
+    private void wireLocalTransport(SessionManager session) {
+        try {
+            if (session.getClient() == null) {
+                session.setClient(new org.example.canvasproject.collab.CollaborationClient(
+                        "ws://127.0.0.1:8765"));
+            }
+            var server = new org.example.canvasproject.transport.LocalServer(
+                    LocalBoardService.getInstance().storage(),
+                    org.example.canvasproject.storage.BoardRecord.LOCAL_OWNER,
+                    "Локальный", "owner");
+            session.getClient().setLocalTransport(
+                    new org.example.canvasproject.transport.InProcessTransport(server));
+            session.onLoginSuccess("local",
+                    org.example.canvasproject.storage.BoardRecord.LOCAL_OWNER, "Локальный");
+            if (syncManager != null) syncManager.setSyncEnabled(true);
+        } catch (Exception e) {
+            showToast("Локальный режим недоступен: " + e.getMessage(), true);
+        }
     }
 
     private void saveLocalNow() {
