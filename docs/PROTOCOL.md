@@ -33,6 +33,8 @@
 | `DELETE_ELEMENT` | `canvasId`, `elementId` | editor/owner |
 | `UPDATE_ELEMENTS` | `canvasId`, `updates`: массив `{elementId, data}` | editor/owner; до 10 000 элементов, id уникальны, data ≤ 6 МБ каждый; весь пакет проверяется до записи |
 | `DELETE_ELEMENTS` | `canvasId`, `elementIds`: массив id | editor/owner; до 10 000 элементов, id уникальны |
+| `ASSET_PUT` | `assetId` (SHA-256, 64 hex), `mime`, `data` (base64) | editor/owner; сервер пересчитывает хэш и отклоняет несовпадение |
+| `ASSET_GET` | `assetId` | участник доски; ответ `ASSET_DATA` или `ERROR` |
 | `CURSOR_MOVE` | `x`, `y` | любой участник активной доски; `canvasId` не используется |
 
 ## Сервер → клиент
@@ -57,6 +59,8 @@
 | `ELEMENT_DELETED` | `canvasId`, `elementId`, `deletedBy` |
 | `ELEMENTS_UPDATED` | `canvasId`, `updates`: массив `{elementId, data}`, `updatedBy` |
 | `ELEMENTS_DELETED` | `canvasId`, `elementIds`: массив id, `deletedBy` |
+| `ASSET_STORED` | `assetId` — подтверждение загрузки, отправляется только загрузившему |
+| `ASSET_DATA` | `assetId`, `data` (base64) |
 | `CURSOR_MOVED` | `userId`, `username`, `color`, `x`, `y` |
 | `USER_JOINED` / `USER_LEFT` / `USER_UPDATED` | `userId`, `username`, `color` |
 | `ERROR` | `message` |
@@ -77,7 +81,7 @@
 | `text` | `x`, `y`, `width`, `height`, `text` — **цвет и размер шрифта сейчас не передаются** (см. AUDIT) |
 | `figure` | `x`, `y`, `width`, `height`, `figureType` (`rect`/`circle`/`triangle`/`star`/`arrow`), `color` |
 | `note` | `x`, `y`, `width`, `height`, `text`, `title`, `color` — размер шрифта не передаётся |
-| `image` | `x`, `y`, `width`, `height`, `imageData` (data URL, `http(s)` или `file` URL) |
+| `image` | `x`, `y`, `width`, `height`, `assetId` (SHA-256) и `mime` — предпочтительно; `imageData` (data URL, `http(s)` или `file` URL) — устаревшая форма, мигрирует в ассет при открытии доски |
 
 ## Ограничения и ошибки
 
