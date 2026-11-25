@@ -30,12 +30,16 @@ public class SyncManager {
 
     private CursorUpdateCallback cursorCallback;
     private java.util.function.Consumer<Selectable> onElementAdded;
+    private java.util.function.Consumer<Selectable> onElementRemoved;
+    private java.util.function.Consumer<Selectable> onElementChanged;
     private AssetStore assetStore;
     private java.util.function.Consumer<String> assetRequest;
     private Runnable onAssetApplied;
     private final Set<String> missingAssets = new HashSet<>();
 
     private final IdentityHashMap<Selectable, String> serverIdMap = new IdentityHashMap<>();
+    private long lastMoveNotification;
+    private static final long MOVE_THROTTLE_MS = 45;
 
     public interface CursorUpdateCallback {
         void onCursorUpdate(String userId, String username, double x, double y, String color);
@@ -48,6 +52,8 @@ public class SyncManager {
 
     public void setCursorCallback(CursorUpdateCallback cb) { this.cursorCallback = cb; }
     public void setOnElementAdded(java.util.function.Consumer<Selectable> cb) { this.onElementAdded = cb; }
+    public void setOnElementRemoved(java.util.function.Consumer<Selectable> cb) { this.onElementRemoved = cb; }
+    public void setOnElementChanged(java.util.function.Consumer<Selectable> cb) { this.onElementChanged = cb; }
     public void setSyncEnabled(boolean enabled) { this.syncEnabled = enabled; }
     public void setAssetStore(AssetStore assetStore) { this.assetStore = assetStore; }
     /** Запрос файла у сервера, если его нет в локальном хранилище. */
@@ -108,6 +114,53 @@ public class SyncManager {
         session.getClient().updateElement(canvasId, resolveId(el), serializeElement(el));
     }
 
+    /** Пакетное обновление: одна команда UPDATE_ELEMENTS вместо N сообщений. */
+    public void notifyUpdatedBatch(java.util.Collection<? extends Selectable> elements) {
+        if (!isSyncEnabled() || elements == null || elements.isEmpty()) return;
+        String canvasId = session.getActiveCanvasId();
+        if (canvasId == null) return;
+        JSONArray updates = new JSONArray();
+        for (Selectable el : elements) {
+            updates.put(new JSONObject()
+                    .put("elementId", resolveId(el))
+                    .put("data", serializeElement(el)));
+        }
+        session.getClient().updateElements(canvasId, updates);
+    }
+
+    /** Промежуточные позиции при перетаскивании: не чаще ~45 мс. */
+    public void notifyMoving(java.util.Collection<? extends Selectable> elements) {
+        long now = System.currentTimeMillis();
+        if (now - lastMoveNotification < MOVE_THROTTLE_MS) return;
+        lastMoveNotification = now;
+        notifyUpdatedBatch(elements);
+    }
+
+    /** Итог перетаскивания отправляется всегда, без троттлинга. */
+    public void notifyMoveFinished(java.util.Collection<? extends Selectable> elements) {
+        lastMoveNotification = 0;
+        notifyUpdatedBatch(elements);
+    }
+
+    public void notifyDeletedBatch(java.util.Collection<? extends Selectable> elements) {
+        if (!isSyncEnabled() || elements == null || elements.isEmpty()) return;
+        String canvasId = session.getActiveCanvasId();
+        if (canvasId == null) return;
+        JSONArray ids = new JSONArray();
+        for (Selectable el : elements) ids.put(resolveId(el));
+        session.getClient().deleteElements(canvasId, ids);
+    }
+
+    /** Копия элемента с новым id — для вставки и дублирования. */
+    public Selectable createCopy(String elementType, JSONObject data) {
+        String newId = java.util.UUID.randomUUID().toString();
+        return deserializeElement(newId, elementType, data);
+    }
+
+    public String elementIdFor(Selectable el) {
+        return resolveId(el);
+    }
+
     public void notifyCursorMove(double x, double y) {
         if (!isSyncEnabled()) return;
         String canvasId = session.getActiveCanvasId();
@@ -141,6 +194,8 @@ public class SyncManager {
             case "ELEMENT_ADDED"   -> applyRemoteAdd(msg);
             case "ELEMENT_DELETED" -> applyRemoteDelete(msg);
             case "ELEMENT_UPDATED" -> applyRemoteUpdate(msg);
+            case "ELEMENTS_DELETED" -> applyRemoteDeleteBatch(msg);
+            case "ELEMENTS_UPDATED" -> applyRemoteUpdateBatch(msg);
             case "CURSOR_MOVED"    -> applyRemoteCursor(msg);
         }
     }
@@ -172,8 +227,29 @@ public class SyncManager {
                 .ifPresent(el -> {
                     model.remove(el);
                     serverIdMap.remove(el);
+                    if (onElementRemoved != null) onElementRemoved.accept(el);
                 })
         );
+    }
+
+    private void applyRemoteDeleteBatch(JSONObject msg) {
+        JSONArray ids = msg.optJSONArray("elementIds");
+        if (ids == null) return;
+        Set<String> wanted = new HashSet<>();
+        for (int i = 0; i < ids.length(); i++) wanted.add(ids.optString(i));
+        Platform.runLater(() -> {
+            List<Selectable> removed = new java.util.ArrayList<>();
+            for (Selectable el : new java.util.ArrayList<>(model.elements())) {
+                if (wanted.contains(resolveId(el))) {
+                    model.remove(el);
+                    serverIdMap.remove(el);
+                    removed.add(el);
+                }
+            }
+            if (onElementRemoved != null) {
+                for (Selectable el : removed) onElementRemoved.accept(el);
+            }
+        });
     }
 
     private void applyRemoteUpdate(JSONObject msg) {
@@ -183,8 +259,32 @@ public class SyncManager {
             model.elements().stream()
                 .filter(el -> resolveId(el).equals(elementId))
                 .findFirst()
-                .ifPresent(el -> applyDataToElement(el, data))
+                .ifPresent(el -> {
+                    applyDataToElement(el, data);
+                    model.refreshSpatialIndex(el);
+                    if (onElementChanged != null) onElementChanged.accept(el);
+                })
         );
+    }
+
+    private void applyRemoteUpdateBatch(JSONObject msg) {
+        JSONArray updates = msg.optJSONArray("updates");
+        if (updates == null) return;
+        java.util.Map<String, JSONObject> byId = new java.util.HashMap<>();
+        for (int i = 0; i < updates.length(); i++) {
+            JSONObject update = updates.optJSONObject(i);
+            if (update == null) continue;
+            byId.put(update.optString("elementId"), update.optJSONObject("data"));
+        }
+        Platform.runLater(() -> {
+            for (Selectable el : model.elements()) {
+                JSONObject data = byId.get(resolveId(el));
+                if (data == null) continue;
+                applyDataToElement(el, data);
+                model.refreshSpatialIndex(el);
+                if (onElementChanged != null) onElementChanged.accept(el);
+            }
+        });
     }
 
     private void applyRemoteCursor(JSONObject msg) {
@@ -242,6 +342,9 @@ public class SyncManager {
             case "figure" -> serializeFigure(el, data);
             case "note"   -> serializeNote(el, data);
             case "image"  -> serializeImage(el, data);
+        }
+        if (el.getNode() != null && Math.abs(el.getNode().getOpacity() - 1.0) > 1e-9) {
+            data.put("nodeOpacity", el.getNode().getOpacity());
         }
         return data;
     }
@@ -498,6 +601,9 @@ public class SyncManager {
 
     private void applyDataToElement(Selectable el, JSONObject data) {
         if (data == null) return;
+        if (el.getNode() != null && data.has("nodeOpacity")) {
+            el.getNode().setOpacity(data.optDouble("nodeOpacity", 1.0));
+        }
 
         if (el instanceof customTextField tf) {
             tf.setLayoutX(data.optDouble("x", tf.getLayoutX()));

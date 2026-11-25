@@ -4,7 +4,9 @@ import org.bson.Document;
 import org.example.canvasproject.models.*;
 import org.example.canvasproject.service.*;
 import org.example.canvasproject.storage.AssetStore;
+import org.example.canvasproject.storage.ElementUpdate;
 import org.example.canvasproject.storage.FileAssetStore;
+import org.example.canvasproject.service.repository.MongoStorage;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -44,6 +46,8 @@ public class CollaborationServer extends WebSocketServer {
     private final MongoDBService mongo  = MongoDBService.getInstance();
     private final InviteService invite = InviteService.getInstance();
     private final AssetStore assets = new FileAssetStore(ServerConfig.assetsDir());
+    /** Репозиторий элементов: пакетные операции атомарны. */
+    private final MongoStorage storage = new MongoStorage(mongo, ServerConfig.assetsDir());
 
     private final boolean allowNewDevices = ServerConfig.allowNewDevices();
     private final int maxMessagesPer10s  = ServerConfig.maxMessagesPer10s();
@@ -152,6 +156,8 @@ public class CollaborationServer extends WebSocketServer {
                 case "ADD_ELEMENT"    -> handleAddElement(conn, msg);
                 case "DELETE_ELEMENT" -> handleDeleteElement(conn, msg);
                 case "UPDATE_ELEMENT" -> handleUpdateElement(conn, msg);
+                case "UPDATE_ELEMENTS" -> handleUpdateElements(conn, msg);
+                case "DELETE_ELEMENTS" -> handleDeleteElements(conn, msg);
                 case "CURSOR_MOVE"    -> handleCursorMove(conn, msg);
                 case "ASSET_PUT"      -> handleAssetPut(conn, msg);
                 case "ASSET_GET"      -> handleAssetGet(conn, msg);
@@ -700,6 +706,106 @@ public class CollaborationServer extends WebSocketServer {
         broadcast.put("elementId", elementId);
         broadcast.put("data",      data);
         broadcast.put("updatedBy", s.userId);
+        broadcast(canvasId, conn, broadcast);
+    }
+
+    /** Пакетное обновление группы: проверяем весь список до записи. */
+    private void handleUpdateElements(WebSocket conn, JSONObject msg) {
+        Session s = requireAuth(conn, msg);
+        if (s == null) return;
+
+        String canvasId = msg.optString("canvasId");
+        CanvasDocument canvas = mongo.findCanvasById(canvasId);
+        if (canvas == null || !canvas.canEdit(s.userId)) {
+            send(conn, error("Только редактор может изменять доску"));
+            return;
+        }
+
+        JSONArray input = msg.optJSONArray("updates");
+        if (input == null || input.isEmpty()) {
+            send(conn, error("Список updates пуст"));
+            return;
+        }
+        if (input.length() > 10_000) {
+            send(conn, error("Слишком много элементов в пакете"));
+            return;
+        }
+
+        List<ElementUpdate> updates = new ArrayList<>(input.length());
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < input.length(); i++) {
+            JSONObject item = input.optJSONObject(i);
+            if (item == null) {
+                send(conn, error("Некорректное обновление в пакете"));
+                return;
+            }
+            String elementId = item.optString("elementId", "");
+            if (elementId.isBlank() || elementId.length() > 128 || !seen.add(elementId)) {
+                send(conn, error("Некорректный elementId в пакете"));
+                return;
+            }
+            JSONObject data = item.optJSONObject("data");
+            if (data == null) {
+                send(conn, error("Поле data обязательно"));
+                return;
+            }
+            if (data.toString().length() > 6_000_000) {
+                send(conn, error("Элемент слишком большой"));
+                return;
+            }
+            updates.add(new ElementUpdate(elementId, data));
+        }
+
+        storage.elements().updateMany(canvasId, updates);
+
+        JSONObject broadcast = new JSONObject();
+        broadcast.put("type",      "ELEMENTS_UPDATED");
+        broadcast.put("canvasId",  canvasId);
+        broadcast.put("updates",   input);
+        broadcast.put("updatedBy", s.userId);
+        broadcast(canvasId, conn, broadcast);
+    }
+
+    /** Пакетное удаление группы одной транзакцией. */
+    private void handleDeleteElements(WebSocket conn, JSONObject msg) {
+        Session s = requireAuth(conn, msg);
+        if (s == null) return;
+
+        String canvasId = msg.optString("canvasId");
+        CanvasDocument canvas = mongo.findCanvasById(canvasId);
+        if (canvas == null || !canvas.canEdit(s.userId)) {
+            send(conn, error("Только редактор может изменять доску"));
+            return;
+        }
+
+        JSONArray input = msg.optJSONArray("elementIds");
+        if (input == null || input.isEmpty()) {
+            send(conn, error("Список elementIds пуст"));
+            return;
+        }
+        if (input.length() > 10_000) {
+            send(conn, error("Слишком много элементов в пакете"));
+            return;
+        }
+
+        List<String> ids = new ArrayList<>(input.length());
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < input.length(); i++) {
+            String id = input.optString(i, "");
+            if (id.isBlank() || id.length() > 128 || !seen.add(id)) {
+                send(conn, error("Некорректный elementId в пакете"));
+                return;
+            }
+            ids.add(id);
+        }
+
+        storage.elements().deleteMany(canvasId, ids);
+
+        JSONObject broadcast = new JSONObject();
+        broadcast.put("type",       "ELEMENTS_DELETED");
+        broadcast.put("canvasId",   canvasId);
+        broadcast.put("elementIds", input);
+        broadcast.put("deletedBy",  s.userId);
         broadcast(canvasId, conn, broadcast);
     }
 

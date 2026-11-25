@@ -6,6 +6,8 @@ import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
 import javafx.scene.CacheHint;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
@@ -24,6 +26,7 @@ import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.AnchorPane;
@@ -51,7 +54,7 @@ import java.util.List;
 public class controller {
 
     @FXML private Canvas      canvas;
-    @FXML private Button      penBtn, textBtn, figureBtn, imgBtm, noteBtn;
+    @FXML private Button      selectBtn, penBtn, textBtn, figureBtn, imgBtm, noteBtn;
     @FXML private AnchorPane  pane;
     @FXML private Button      menuBtn;
     @FXML private Rectangle   overlay;
@@ -60,12 +63,13 @@ public class controller {
     @FXML private Label       navCanvasSize;
     @FXML private Button      homeBtn, inviteBtn, resizeBtn, exportBtn;
     @FXML private Button      backgroundBtn, gridBtn, zoomInBtn, zoomOutBtn, resetZoomBtn;    @FXML private Button      undoBtn, redoBtn, clearBtn;
-    @FXML private Label       connectionLabel;
+    @FXML private Button      selectAllBtn;
+    @FXML private Label       connectionLabel, selectionStatus;
 
     private GraphicsContext gc;
 
-    private enum Mode { NONE, PEN, TEXT, FIGURE, NOTE }
-    private Mode currentMode = Mode.NONE;
+    private enum Mode { NONE, SELECT, PEN, TEXT, FIGURE, NOTE }
+    private Mode currentMode = Mode.SELECT;
 
     private final Group canvasGroup = new Group();
     private final Scale canvasScale = new Scale(1, 1, 0, 0);
@@ -115,6 +119,25 @@ public class controller {
     private int canvasHeight = 1080;
     private String ownerId   = "";
 
+    // --- Выделение рамкой и групповые операции ---
+    private record ClipboardItem(String type, org.json.JSONObject data) {}
+    private final List<ClipboardItem> clipboard = new ArrayList<>();
+
+    private MarqueeOverlay marqueeOverlay;
+    private boolean marqueePending;
+    private boolean marqueeStarted;
+    private double marqueeStartCanvasX, marqueeStartCanvasY;
+    private double marqueeStartSceneX, marqueeStartSceneY;
+    private double marqueeEndCanvasX, marqueeEndCanvasY;
+    private List<Selectable> marqueeCandidates = List.of();
+
+    private boolean selectionDragging;
+    private double dragStartCanvasX, dragStartCanvasY;
+    private double dragStartSceneX, dragStartSceneY;
+
+    private Timeline autoScrollTimeline;
+    private double lastPointerSceneX, lastPointerSceneY;
+
 
     @FXML
     public void initialize() {
@@ -129,6 +152,8 @@ public class controller {
 
         model     = new BoardModel(canvasGroup);
         selection = new SelectionManager(canvasGroup, model, commandManager);
+        selection.setGridSnap(showGrid);
+        selection.setOnSelectionChanged(this::onSelectionCountChanged);
         commandManager.setHistoryListener(this::syncHistoryChange);
 
         fillBackground();
@@ -136,6 +161,8 @@ public class controller {
         setupToolbarPanel();
         setupZoomAndPan();
         setupCanvasInteractions();
+        setupSelectionInteractions();
+        setupAutoScroll();
         setupCentering();
         setupSceneZoom();
         setupHotkeys();
@@ -144,10 +171,17 @@ public class controller {
         configureToolButtons();
         configureNavigationIcons();
         imgBtm.setOnAction(e -> handleUploadButton());
+        selectBtn.setOnAction(e -> toggleMode(Mode.SELECT));
         penBtn.setOnAction(e    -> toggleMode(Mode.PEN));
         textBtn.setOnAction(e   -> toggleMode(Mode.TEXT));
         figureBtn.setOnAction(e -> toggleMode(Mode.FIGURE));
         noteBtn.setOnAction(e   -> toggleMode(Mode.NOTE));
+        if (selectAllBtn != null) {
+            selectAllBtn.setText(org.example.canvasproject.i18n.I18n.t("menu.selectAll"));
+            selectAllBtn.setOnAction(e -> { selectAll(); closeNavPanel(); });
+        }
+        updateToolButtons();
+        updateSelectionStatus(0);
 
         initCollaboration();
     }
@@ -198,9 +232,25 @@ public class controller {
             selection.attachInteraction(el);
             syncManager.watchTextChanges(el);
         });
+        syncManager.setOnElementRemoved(el -> selection.handleRemoteRemoved(el));
+        syncManager.setOnElementChanged(el -> selection.handleRemoteChanged(el));
 
         selection.setOnElementDeleted(el -> {
             if (syncManager != null) syncManager.notifyDeleted(el);
+        });
+        selection.setOnElementsDeleted(els -> {
+            if (syncManager != null) syncManager.notifyDeletedBatch(els);
+        });
+        selection.setOnElementsRestored(els -> {
+            if (syncManager != null) {
+                for (Selectable el : els) syncManager.notifyAdded(el);
+            }
+        });
+        selection.setOnElementsChanged(els -> {
+            if (syncManager != null) syncManager.notifyUpdatedBatch(els);
+        });
+        selection.setOnGestureProgress(els -> {
+            if (syncManager != null) syncManager.notifyMoving(els);
         });
 
         selection.setOnElementChanged(el -> {
@@ -648,6 +698,7 @@ public class controller {
     @FXML
     private void onToggleGrid() {
         showGrid = !showGrid;
+        if (selection != null) selection.setGridSnap(showGrid);
         if (showGrid) {
             drawGrid();
         } else {
@@ -697,6 +748,14 @@ public class controller {
             else      syncManager.notifyAdded(del.getElement());
         } else if (cmd instanceof ChangeStateCommand change) {
             syncManager.notifyUpdated(change.getElement());
+        } else if (cmd instanceof GroupChangeCommand group) {
+            syncManager.notifyUpdatedBatch(group.getElements());
+        } else if (cmd instanceof DeleteElementsCommand del) {
+            if (redo) syncManager.notifyDeletedBatch(del.getElements());
+            else for (Selectable el : del.getElements()) syncManager.notifyAdded(el);
+        } else if (cmd instanceof AddElementsCommand add) {
+            if (redo) for (Selectable el : add.getElements()) syncManager.notifyAdded(el);
+            else syncManager.notifyDeletedBatch(add.getElements());
         }
     }
 
@@ -744,14 +803,23 @@ public class controller {
 
         toolbarPanel.setOnColorChanged(c -> {
             if (isNavOpen) return;
+            if (currentMode == Mode.SELECT) { applySelectionColor(c); return; }
             switch (currentMode) {
                 case PEN    -> penColor    = c;
                 case FIGURE -> { figureColor = c; applyCurrentFigureColorToSelected(); }
                 case NOTE   -> noteColor   = c;
             }
         });
-        toolbarPanel.setOnLineWidthChanged(w  -> { if (!isNavOpen) penWidth = w; });
-        toolbarPanel.setOnOpacityChanged(o    -> { if (!isNavOpen) penOpacity = o; });
+        toolbarPanel.setOnLineWidthChanged(w  -> {
+            if (isNavOpen) return;
+            if (currentMode == Mode.SELECT) { selection.applyLineWidth(w); return; }
+            penWidth = w;
+        });
+        toolbarPanel.setOnOpacityChanged(o    -> {
+            if (isNavOpen) return;
+            if (currentMode == Mode.SELECT) { selection.applyOpacity(o); return; }
+            penOpacity = o;
+        });
         toolbarPanel.setOnFontSizeChanged(s   -> { if (!isNavOpen) { fontSize = s; applyCurrentTextStyleToSelected(); } });
         toolbarPanel.setOnFontColorChanged(c  -> { if (!isNavOpen) { fontColor = c; applyCurrentTextStyleToSelected(); } });
         toolbarPanel.setOnFigureSelected(f    -> { if (!isNavOpen) figureType = f; });
@@ -787,30 +855,31 @@ public class controller {
         }
     }
 
-    private void repositionToolbar() {
-        if (toolbarPanel == null) return;
-        AnchorPane.clearConstraints(toolbarPanel);
-        toolbarPanel.applyCss();
-        toolbarPanel.layout();
-        double panelW = toolbarPanel.prefWidth(-1);
-        double panelH = toolbarPanel.prefHeight(-1);
-        double x = (pane.getWidth() - panelW) / 2;
-        double y = pane.getHeight() - panelH - 100;
-        AnchorPane.setLeftAnchor(toolbarPanel, x);
-        AnchorPane.setTopAnchor(toolbarPanel, y);
+    private void applySelectionColor(Color color) {
+        if (!selection.isEditable() || selection.selectionCount() == 0) return;
+        selection.applyColor(color);
     }
 
     private void toggleMode(Mode mode) {
         if (isNavOpen) return;
+        if (mode == Mode.SELECT) {
+            currentMode = Mode.SELECT;
+            updateCursor();
+            updateToolButtons();
+            showSelectionToolbar();
+            return;
+        }
         selection.clearSelection();
         if (currentMode == mode) {
             currentMode = Mode.NONE;
             toolbarPanel.hide();
             updateCursor();
+            updateToolButtons();
             return;
         }
         currentMode = mode;
         updateCursor();
+        updateToolButtons();
         ToolbarPanel.ToolMode toolMode = switch (mode) {
             case PEN    -> ToolbarPanel.ToolMode.PEN;
             case TEXT   -> ToolbarPanel.ToolMode.TEXT;
@@ -822,6 +891,24 @@ public class controller {
         Platform.runLater(this::repositionToolbar);
     }
 
+    private void updateToolButtons() {
+        Button[] tools = {selectBtn, penBtn, textBtn, figureBtn, noteBtn};
+        for (Button b : tools) {
+            if (b != null) b.getStyleClass().remove("tool-active");
+        }
+        Button active = switch (currentMode) {
+            case SELECT -> selectBtn;
+            case PEN -> penBtn;
+            case TEXT -> textBtn;
+            case FIGURE -> figureBtn;
+            case NOTE -> noteBtn;
+            default -> null;
+        };
+        if (active != null && !active.getStyleClass().contains("tool-active")) {
+            active.getStyleClass().add("tool-active");
+        }
+    }
+
     private void updateCursor() {
         if (isNavOpen) { canvas.setCursor(Cursor.DEFAULT); return; }
         canvas.setCursor(switch (currentMode) {
@@ -831,6 +918,19 @@ public class controller {
             case NOTE   -> Cursor.HAND;
             default     -> Cursor.DEFAULT;
         });
+    }
+
+    private void repositionToolbar() {
+        if (toolbarPanel == null) return;
+        AnchorPane.clearConstraints(toolbarPanel);
+        toolbarPanel.applyCss();
+        toolbarPanel.layout();
+        double panelW = toolbarPanel.prefWidth(-1);
+        double panelH = toolbarPanel.prefHeight(-1);
+        double x = (pane.getWidth() - panelW) / 2;
+        double y = pane.getHeight() - panelH - 100;
+        AnchorPane.setLeftAnchor(toolbarPanel, x);
+        AnchorPane.setTopAnchor(toolbarPanel, y);
     }
 
     private void setupHotkeys() {
@@ -866,17 +966,53 @@ public class controller {
                 } else if (e.isControlDown() && e.getCode() == KeyCode.DIGIT0) {
                     onResetZoom();
                     e.consume();
+                } else if (currentMode == Mode.SELECT
+                        && selection.selectionCount() > 0
+                        && isArrowKey(e.getCode())) {
+                    if (!SessionManager.getInstance().isViewer()) {
+                        double step = e.isShiftDown() ? 10 : 1;
+                        switch (e.getCode()) {
+                            case LEFT  -> nudgeSelection(-step, 0);
+                            case RIGHT -> nudgeSelection(step, 0);
+                            case UP    -> nudgeSelection(0, -step);
+                            case DOWN  -> nudgeSelection(0, step);
+                            default -> { }
+                        }
+                    }
+                    e.consume();
                 } else if (e.getCode() == KeyCode.DELETE || e.getCode() == KeyCode.BACK_SPACE) {
                     if (SessionManager.getInstance().isViewer()) return;
                     selection.deleteSelected();
                     e.consume();
+                } else if (e.isControlDown() && e.getCode() == KeyCode.A) {
+                    selectAll();
+                    e.consume();
+                } else if (e.isControlDown() && e.getCode() == KeyCode.C) {
+                    copySelection();
+                    e.consume();
+                } else if (e.isControlDown() && e.getCode() == KeyCode.X) {
+                    cutSelection();
+                    e.consume();
+                } else if (e.isControlDown() && e.getCode() == KeyCode.V) {
+                    pasteClipboard();
+                    e.consume();
+                } else if (e.isControlDown() && e.getCode() == KeyCode.D) {
+                    duplicateSelection();
+                    e.consume();
+                } else if (e.getCode() == KeyCode.TAB && !e.isControlDown()) {
+                    selectNext(e.isShiftDown());
+                    e.consume();
+                } else if (e.getCode() == KeyCode.V && !e.isControlDown()) {
+                    toggleMode(Mode.SELECT);
+                    e.consume();
                 } else if (e.getCode() == KeyCode.ESCAPE) {
-                    if (currentMode != Mode.NONE) {
-                        currentMode = Mode.NONE;
+                    if (selection.selectionCount() > 0) {
+                        selection.clearSelection();
+                    } else if (currentMode != Mode.SELECT) {
+                        currentMode = Mode.SELECT;
                         toolbarPanel.hide();
                         updateCursor();
-                    } else {
-                        selection.clearSelection();
+                        updateToolButtons();
                     }
                     e.consume();
                 } else if (e.isControlDown() && e.getCode() == KeyCode.G) {
@@ -888,6 +1024,352 @@ public class controller {
                 }
             });
         });
+    }
+
+    private void setupSelectionInteractions() {
+        canvasGroup.addEventFilter(MouseEvent.MOUSE_PRESSED, this::onSelectionPressed);
+        canvasGroup.addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onSelectionDragged);
+        canvasGroup.addEventFilter(MouseEvent.MOUSE_RELEASED, this::onSelectionReleased);
+    }
+
+    private boolean isSelectionControlTarget(Object target) {
+        if (!(target instanceof javafx.scene.Node node)) return false;
+        while (node != null) {
+            if (node instanceof SelectionOverlay
+                    || node instanceof GroupSelectionOverlay
+                    || node instanceof MarqueeOverlay) {
+                return true;
+            }
+            node = node.getParent();
+        }
+        return false;
+    }
+
+    private void onSelectionPressed(MouseEvent e) {
+        if (isNavOpen || currentMode != Mode.SELECT) return;
+        if (e.getButton() != MouseButton.PRIMARY) return;
+        if (isSelectionControlTarget(e.getTarget())) return;
+
+        Point2D p = SelectionGeometry.toCanvas(canvasGroup, e.getSceneX(), e.getSceneY());
+        Selectable hit = model.findAt(p.getX(), p.getY());
+
+        if (e.getClickCount() >= 2 && hit != null) {
+            // Двойной клик оставляем тексту и стикеру: они сами входят в режим правки.
+            return;
+        }
+
+        marqueeStartSceneX = e.getSceneX();
+        marqueeStartSceneY = e.getSceneY();
+        lastPointerSceneX = e.getSceneX();
+        lastPointerSceneY = e.getSceneY();
+
+        if (hit != null) {
+            if (e.isShiftDown() || e.isControlDown()) {
+                selection.toggleSelection(List.of(hit));
+            } else if (!selection.isSelected(hit)) {
+                selection.setSelection(List.of(hit));
+            }
+            if (selection.isSelected(hit) && selection.isEditable()) {
+                selectionDragging = true;
+                dragStartCanvasX = p.getX();
+                dragStartCanvasY = p.getY();
+                dragStartSceneX = e.getSceneX();
+                dragStartSceneY = e.getSceneY();
+                selection.beginGesture();
+            }
+            showSelectionToolbar();
+            e.consume();
+            return;
+        }
+
+        // Пустое место: рамка начнётся только после порога протягивания.
+        marqueePending = true;
+        marqueeStarted = false;
+        marqueeStartCanvasX = p.getX();
+        marqueeStartCanvasY = p.getY();
+        marqueeEndCanvasX = p.getX();
+        marqueeEndCanvasY = p.getY();
+        marqueeCandidates = List.of();
+        e.consume();
+    }
+
+    private void onSelectionDragged(MouseEvent e) {
+        if (isNavOpen || currentMode != Mode.SELECT) return;
+        if (!e.isPrimaryButtonDown()) return;
+
+        if (selectionDragging) {
+            Point2D start = SelectionGeometry.toCanvas(canvasGroup, dragStartSceneX, dragStartSceneY);
+            Point2D current = SelectionGeometry.toCanvas(canvasGroup, e.getSceneX(), e.getSceneY());
+            double dx = current.getX() - start.getX();
+            double dy = current.getY() - start.getY();
+            Bounds groupStart = selection.getGestureStartBounds();
+            if (showGrid && groupStart != null) {
+                double step = selection.getGridSize();
+                dx = Math.round((groupStart.getMinX() + dx) / step) * step - groupStart.getMinX();
+                dy = Math.round((groupStart.getMinY() + dy) / step) * step - groupStart.getMinY();
+            }
+            selection.moveGesture(dx, dy);
+            e.consume();
+            return;
+        }
+
+        if (!marqueePending) return;
+        double sceneDistance = Math.hypot(e.getSceneX() - marqueeStartSceneX,
+                e.getSceneY() - marqueeStartSceneY);
+        if (!marqueeStarted && sceneDistance < SelectionGeometry.DRAG_THRESHOLD) {
+            e.consume();
+            return;
+        }
+        if (!marqueeStarted) {
+            marqueeStarted = true;
+            marqueeOverlay = new MarqueeOverlay();
+            canvasGroup.getChildren().add(marqueeOverlay);
+            marqueeOverlay.toFront();
+        }
+        Point2D p = SelectionGeometry.toCanvas(canvasGroup, e.getSceneX(), e.getSceneY());
+        marqueeEndCanvasX = p.getX();
+        marqueeEndCanvasY = p.getY();
+        lastPointerSceneX = e.getSceneX();
+        lastPointerSceneY = e.getSceneY();
+        refreshMarquee();
+        updateAutoScroll(e.getSceneX(), e.getSceneY());
+        e.consume();
+    }
+
+    private void onSelectionReleased(MouseEvent e) {
+        if (isNavOpen || currentMode != Mode.SELECT) return;
+        if (e.getButton() != MouseButton.PRIMARY) return;
+
+        stopAutoScroll();
+
+        if (selectionDragging) {
+            selectionDragging = false;
+            GroupChangeCommand command = selection.endGesture();
+            if (command != null && syncManager != null) {
+                syncManager.notifyMoveFinished(command.getElements());
+            }
+            showSelectionToolbar();
+            e.consume();
+            return;
+        }
+
+        if (!marqueePending) return;
+        boolean started = marqueeStarted;
+        List<Selectable> candidates = marqueeCandidates;
+        marqueePending = false;
+        marqueeStarted = false;
+        marqueeCandidates = List.of();
+        removeMarquee();
+
+        if (started) {
+            if (e.isShiftDown() || e.isControlDown()) {
+                selection.toggleSelection(candidates);
+            } else {
+                selection.setSelection(candidates);
+            }
+        } else if (!e.isShiftDown() && !e.isControlDown()) {
+            // Обычный клик по пустому месту снимает выделение.
+            selection.clearSelection();
+        }
+        showSelectionToolbar();
+        e.consume();
+    }
+
+    private void refreshMarquee() {
+        if (marqueeOverlay == null) return;
+        Bounds frame = SelectionGeometry.normalize(
+                marqueeStartCanvasX, marqueeStartCanvasY, marqueeEndCanvasX, marqueeEndCanvasY);
+        boolean containMode = SelectionGeometry.isContainMode(marqueeStartCanvasX, marqueeEndCanvasX);
+        marqueeOverlay.setFrame(frame, containMode);
+        marqueeCandidates = SelectionGeometry.select(model, frame, containMode);
+        marqueeOverlay.setHighlights(marqueeCandidates);
+    }
+
+    private void removeMarquee() {
+        if (marqueeOverlay != null) {
+            canvasGroup.getChildren().remove(marqueeOverlay);
+            marqueeOverlay = null;
+        }
+    }
+
+    private void setupAutoScroll() {
+        autoScrollTimeline = new Timeline(new KeyFrame(Duration.millis(30), e -> tickAutoScroll()));
+        autoScrollTimeline.setCycleCount(Timeline.INDEFINITE);
+    }
+
+    private void updateAutoScroll(double sceneX, double sceneY) {
+        lastPointerSceneX = sceneX;
+        lastPointerSceneY = sceneY;
+        double margin = 28;
+        Point2D paneScene = pane.localToScene(0, 0);
+        boolean nearEdge = sceneX < paneScene.getX() + margin
+                || sceneX > paneScene.getX() + pane.getWidth() - margin
+                || sceneY < paneScene.getY() + margin
+                || sceneY > paneScene.getY() + pane.getHeight() - margin;
+        if (!nearEdge) {
+            stopAutoScroll();
+        } else if (autoScrollTimeline != null && autoScrollTimeline.getStatus() != Timeline.Status.RUNNING) {
+            autoScrollTimeline.play();
+        }
+    }
+
+    private void tickAutoScroll() {
+        if (!marqueeStarted) {
+            stopAutoScroll();
+            return;
+        }
+        double margin = 28;
+        double step = 14;
+        Point2D paneScene = pane.localToScene(0, 0);
+        if (lastPointerSceneX < paneScene.getX() + margin) translateX += step;
+        else if (lastPointerSceneX > paneScene.getX() + pane.getWidth() - margin) translateX -= step;
+        if (lastPointerSceneY < paneScene.getY() + margin) translateY += step;
+        else if (lastPointerSceneY > paneScene.getY() + pane.getHeight() - margin) translateY -= step;
+        updateTransform();
+
+        Point2D p = SelectionGeometry.toCanvas(canvasGroup, lastPointerSceneX, lastPointerSceneY);
+        marqueeEndCanvasX = p.getX();
+        marqueeEndCanvasY = p.getY();
+        refreshMarquee();
+    }
+
+    private void stopAutoScroll() {
+        if (autoScrollTimeline != null) autoScrollTimeline.stop();
+    }
+
+    private void selectAll() {
+        if (model.elements().isEmpty()) return;
+        selection.selectAll();
+        showSelectionToolbar();
+    }
+
+    private boolean isArrowKey(KeyCode code) {
+        return code == KeyCode.LEFT || code == KeyCode.RIGHT
+                || code == KeyCode.UP || code == KeyCode.DOWN;
+    }
+
+    /** Сдвиг выделения стрелками: одно нажатие — одна команда Undo. */
+    private void nudgeSelection(double dx, double dy) {
+        if (!selection.isEditable() || selection.selectionCount() == 0) return;
+        if (!selection.beginGesture()) return;
+        Bounds start = selection.getGestureStartBounds();
+        double stepX = dx;
+        double stepY = dy;
+        if (showGrid && start != null) {
+            double step = selection.getGridSize();
+            stepX = Math.round((start.getMinX() + dx) / step) * step - start.getMinX();
+            stepY = Math.round((start.getMinY() + dy) / step) * step - start.getMinY();
+        }
+        selection.moveGesture(stepX, stepY);
+        GroupChangeCommand command = selection.endGesture();
+        if (command != null && syncManager != null) {
+            syncManager.notifyMoveFinished(command.getElements());
+        }
+        showSelectionToolbar();
+    }
+
+    private void selectNext(boolean backwards) {        List<Selectable> elements = model.elements();
+        if (elements.isEmpty()) return;
+        int index = selection.getSelected() == null ? -1 : elements.indexOf(selection.getSelected());
+        int next;
+        if (index < 0) next = backwards ? elements.size() - 1 : 0;
+        else next = Math.floorMod(index + (backwards ? -1 : 1), elements.size());
+        selection.setSelection(List.of(elements.get(next)));
+        showSelectionToolbar();
+    }
+
+    private void updateSelectionStatus(int count) {
+        if (selectionStatus != null) {
+            selectionStatus.setText(org.example.canvasproject.i18n.I18n.t("selection.count", count));
+            selectionStatus.setVisible(count > 0);
+            selectionStatus.setManaged(count > 0);
+        }
+        if (currentMode == Mode.SELECT) showSelectionToolbar();
+    }
+
+    private void showSelectionToolbar() {
+        if (toolbarPanel == null) return;
+        if (currentMode != Mode.SELECT || selection.selectionCount() == 0) {
+            if (toolbarPanel.getActiveMode() == ToolbarPanel.ToolMode.SELECT) toolbarPanel.hide();
+            return;
+        }
+        if (toolbarPanel.getActiveMode() != ToolbarPanel.ToolMode.SELECT) {
+            toolbarPanel.show(ToolbarPanel.ToolMode.SELECT);
+        }
+        toolbarPanel.setDisable(!selection.isEditable());
+        toolbarPanel.updateSelectionSummary(
+                selection.selectionCount(),
+                selection.hasMixedColor(),
+                selection.hasMixedLineWidth(),
+                selection.hasMixedOpacity(),
+                selection.hasAnyColor(),
+                selection.hasAnyLine());
+        Platform.runLater(this::repositionToolbar);
+    }
+
+    private void onSelectionCountChanged(int count) {
+        updateSelectionStatus(count);
+    }
+
+    // ---------------------------------------------------------------
+    // Буфер обмена и групповые команды
+    // ---------------------------------------------------------------
+
+    private void copySelection() {
+        if (syncManager == null) return;
+        clipboard.clear();
+        for (Selectable el : selection.getSelection()) {
+            clipboard.add(new ClipboardItem(el.getType(), syncManager.serializeElement(el)));
+        }
+    }
+
+    private void cutSelection() {
+        if (!selection.isEditable() || selection.selectionCount() == 0 || syncManager == null) return;
+        copySelection();
+        selection.deleteSelected();
+    }
+
+    private void pasteClipboard() {
+        if (clipboard.isEmpty() || !selection.isEditable() || syncManager == null) return;
+        pasteItems(new ArrayList<>(clipboard), 24);
+    }
+
+    private void duplicateSelection() {
+        if (!selection.isEditable() || selection.selectionCount() == 0 || syncManager == null) return;
+        List<ClipboardItem> items = new ArrayList<>();
+        for (Selectable el : selection.getSelection()) {
+            items.add(new ClipboardItem(el.getType(), syncManager.serializeElement(el)));
+        }
+        pasteItems(items, 24);
+    }
+
+    private void pasteItems(List<ClipboardItem> items, double offset) {
+        if (syncManager == null) return;
+        List<Selectable> created = new ArrayList<>();
+        for (ClipboardItem item : items) {
+            Selectable copy = syncManager.createCopy(item.type(), item.data());
+            if (copy == null) continue;
+            copy.move(offset, offset);
+            created.add(copy);
+        }
+        if (created.isEmpty()) return;
+
+        AddElementsCommand command = new AddElementsCommand(model, created,
+                added -> {
+                    for (Selectable el : added) {
+                        selection.attachInteraction(el);
+                        if (syncManager != null) {
+                            syncManager.watchTextChanges(el);
+                            syncManager.notifyAdded(el);
+                        }
+                    }
+                },
+                removed -> {
+                    if (syncManager != null) syncManager.notifyDeletedBatch(removed);
+                });
+        commandManager.execute(command);
+        selection.setSelection(created);
+        showSelectionToolbar();
     }
 
     private void setupCanvasInteractions() {
@@ -1118,6 +1600,9 @@ public class controller {
     }
 
     private void configureToolButtons() {
+        if (selectBtn != null) configureIconButton(selectBtn, "mouse-pointer",
+                org.example.canvasproject.i18n.I18n.t("tool.select"),
+                org.example.canvasproject.i18n.I18n.t("tool.select.tip"));
         configureToolButton(penBtn, "pen-tool", "Рисование", "Инструмент рисования");
         configureToolButton(textBtn, "type", "Текст", "Добавить текст");
         configureToolButton(figureBtn, "layers", "Фигуры", "Добавить фигуру");

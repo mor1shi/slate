@@ -49,6 +49,7 @@
         <Region prefHeight="4"/>
 
         <Label text="ПРАВКИ" styleClass="nav-section-label"/>
+        <Button fx:id="selectAllBtn" text="Выделить всё (Ctrl+A)" styleClass="nav-btn"/>
         <Button fx:id="undoBtn" text="Отменить (Ctrl+Z)" styleClass="nav-btn" onAction="#onUndo"/>
         <Button fx:id="redoBtn" text="Повторить (Ctrl+Y)" styleClass="nav-btn" onAction="#onRedo"/>
         <Button fx:id="clearBtn" text="Очистить всё" styleClass="nav-btn-danger" onAction="#onClearAll"/>
@@ -64,10 +65,14 @@
            AnchorPane.topAnchor="18.0" AnchorPane.rightAnchor="18.0"/>
 
     <Canvas fx:id="canvas" height="1080.0" width="1920.0"/>
+    <Label fx:id="selectionStatus" text="Выделено: 0" styleClass="selection-status"
+           visible="false" managed="false"
+           AnchorPane.leftAnchor="18.0" AnchorPane.bottomAnchor="18.0"/>
     <VBox alignment="BOTTOM_CENTER"
           AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
-        <HBox alignment="CENTER" maxWidth="365.0" prefHeight="70.0" prefWidth="365.0"
+        <HBox alignment="CENTER" maxWidth="430.0" prefHeight="70.0" prefWidth="430.0"
               spacing="15.0" styleClass="hbox" translateY="-20">
+            <Button fx:id="selectBtn" prefHeight="50.0" prefWidth="50.0" styleClass="selectBtn"/>
             <Button fx:id="penBtn" prefHeight="50.0" prefWidth="50.0" styleClass="penBtn"/>
             <Button fx:id="textBtn" prefHeight="50.0" prefWidth="50.0" styleClass="txtBtn"/>
             <Button fx:id="figureBtn" prefHeight="50.0" prefWidth="50.0" styleClass="figureBtn"/>

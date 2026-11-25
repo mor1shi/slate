@@ -259,6 +259,26 @@ public class CollaborationClient extends WebSocketClient {
         sendMessage(msg);
     }
 
+    /** Пакетное обновление группы: сервер применяет его одной транзакцией. */
+    public void updateElements(String canvasId, org.json.JSONArray updates) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",     "UPDATE_ELEMENTS");
+        msg.put("token",    savedToken);
+        msg.put("canvasId", canvasId);
+        msg.put("updates",  updates);
+        sendMessage(msg);
+    }
+
+    /** Пакетное удаление группы: сервер применяет его одной транзакцией. */
+    public void deleteElements(String canvasId, org.json.JSONArray elementIds) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",      "DELETE_ELEMENTS");
+        msg.put("token",     savedToken);
+        msg.put("canvasId",  canvasId);
+        msg.put("elementIds", elementIds);
+        sendMessage(msg);
+    }
+
     /** Заранее выгружает картинку на сервер: в элементе останется только хеш. */
     public void putAsset(String assetId, String mime, byte[] bytes) {
         JSONObject msg = new JSONObject();

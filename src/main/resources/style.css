@@ -58,9 +58,9 @@
 
 /* Панель инструментов из v1.0.0: 365×70, радиус 10, шаг кнопок 15 px */
 .hbox {
-    -fx-min-width: 365px;
-    -fx-pref-width: 365px;
-    -fx-max-width: 365px;
+    -fx-min-width: 430px;
+    -fx-pref-width: 430px;
+    -fx-max-width: 430px;
     -fx-min-height: 70px;
     -fx-pref-height: 70px;
     -fx-max-height: 70px;
@@ -76,7 +76,8 @@
 .txtBtn,
 .figureBtn,
 .imgBtm,
-.noteBtn {
+.noteBtn,
+.selectBtn {
     -fx-background-color: transparent;
     -fx-background-radius: 10;
     -fx-border-color: transparent;
@@ -98,7 +99,8 @@
 .txtBtn:hover,
 .figureBtn:hover,
 .imgBtm:hover,
-.noteBtn:hover {
+.noteBtn:hover,
+.selectBtn:hover {
     -fx-background-color: #3A3A3A;
 }
 
@@ -106,7 +108,8 @@
 .txtBtn:pressed,
 .figureBtn:pressed,
 .imgBtm:pressed,
-.noteBtn:pressed {
+.noteBtn:pressed,
+.selectBtn:pressed {
     -fx-background-color: #333333;
 }
 
@@ -114,10 +117,35 @@
 .txtBtn:focused,
 .figureBtn:focused,
 .imgBtm:focused,
-.noteBtn:focused {
+.noteBtn:focused,
+.selectBtn:focused {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
     -fx-effect: none;
+}
+
+/* Активный инструмент в доке */
+.selectBtn.tool-active,
+.penBtn.tool-active,
+.txtBtn.tool-active,
+.figureBtn.tool-active,
+.noteBtn.tool-active {
+    -fx-background-color: #264F7A;
+    -fx-border-color: #0078FF;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+}
+
+/* Статус выделения */
+.selection-status {
+    -fx-background-color: -app-surface-raised;
+    -fx-text-fill: #E8E8E8;
+    -fx-background-radius: 8;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 6 10 6 10;
+    -fx-font-size: 12px;
 }
 
 /* Кнопка меню (бургер) */

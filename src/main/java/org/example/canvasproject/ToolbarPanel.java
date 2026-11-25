@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 
 public class ToolbarPanel extends HBox {
 
-    public enum ToolMode { PEN, TEXT, FIGURE, NOTE, NONE }
+    public enum ToolMode { PEN, TEXT, FIGURE, NOTE, SELECT, NONE }
 
     private Consumer<Color>  onColorChanged;
     private Consumer<Double> onLineWidthChanged;
@@ -33,6 +33,15 @@ public class ToolbarPanel extends HBox {
     private String currentFigure   = "rect";
 
     private ToolMode activeMode = ToolMode.NONE;
+    private Label selectionCountLabel;
+    private Label selectionColorMixed;
+    private Label selectionWidthValue;
+    private Label selectionWidthMixed;
+    private Label selectionOpacityValue;
+    private Label selectionOpacityMixed;
+    private final List<Node> selectionColorNodes = new ArrayList<>();
+    private final List<Node> selectionWidthNodes = new ArrayList<>();
+    private final List<Node> selectionOpacityNodes = new ArrayList<>();
 
     public ToolbarPanel() {
         getStyleClass().add("tool-panel");
@@ -57,6 +66,7 @@ public class ToolbarPanel extends HBox {
             case TEXT   -> buildTextControls();
             case FIGURE -> buildFigureControls();
             case NOTE   -> buildNoteControls();
+            case SELECT -> buildSelectControls();
             default     -> new ArrayList<>();
         };
 
@@ -143,6 +153,137 @@ public class ToolbarPanel extends HBox {
         nodes.add(opVal);
 
         return nodes;
+    }
+
+    private List<Node> buildSelectControls() {
+        List<Node> nodes = new ArrayList<>();
+        selectionColorNodes.clear();
+        selectionWidthNodes.clear();
+        selectionOpacityNodes.clear();
+
+        selectionCountLabel = makeLabel(org.example.canvasproject.i18n.I18n.t("selection.count", 0));
+        nodes.add(selectionCountLabel);
+
+        // Цвет есть не у всех типов (например, у стикера своего сеттера нет),
+        // поэтому строку можно скрыть, если общих свойств у выделения нет.
+        addTo(nodes, selectionColorNodes, makeSep());
+        addTo(nodes, selectionColorNodes, makeLabel(org.example.canvasproject.i18n.I18n.t("selection.color")));
+        addTo(nodes, selectionColorNodes, makeSpacer(6));
+        HBox colorRow = new HBox(5);
+        colorRow.setAlignment(Pos.CENTER_LEFT);
+        Color[] palette = {
+                Color.BLACK, Color.WHITE, Color.web("#FF3B30"), Color.web("#FF9500"),
+                Color.web("#FFCC00"), Color.web("#34C759"), Color.web("#0078FF"),
+                Color.web("#AF52DE"), Color.web("#FF2D55"), Color.LIGHTGRAY
+        };
+        for (Color c : palette) {
+            colorRow.getChildren().add(makeColorDot(c, () -> {
+                currentColor = c;
+                if (onColorChanged != null) onColorChanged.accept(c);
+            }));
+        }
+        colorRow.getChildren().add(makeColorPicker(currentColor, c -> {
+            currentColor = c;
+            if (onColorChanged != null) onColorChanged.accept(c);
+        }));
+        nodes.add(colorRow);
+        selectionColorNodes.add(colorRow);
+        selectionColorMixed = makeMixedLabel();
+        nodes.add(selectionColorMixed);
+        selectionColorNodes.add(selectionColorMixed);
+
+        addTo(nodes, selectionWidthNodes, makeSep());
+
+        addTo(nodes, selectionWidthNodes, makeLabel(org.example.canvasproject.i18n.I18n.t("selection.width")));
+        addTo(nodes, selectionWidthNodes, makeSpacer(6));
+        Slider widthSlider = makeSlider(1, 30, currentWidth, val -> {
+            currentWidth = val;
+            if (onLineWidthChanged != null) onLineWidthChanged.accept(val);
+        });
+        widthSlider.setPrefWidth(90);
+        selectionWidthValue = makeValueLabel(String.format("%.0fpx", currentWidth));
+        widthSlider.valueProperty().addListener((o, oldV, v) ->
+                selectionWidthValue.setText(String.format("%.0fpx", v.doubleValue())));
+        nodes.add(widthSlider);
+        selectionWidthNodes.add(widthSlider);
+        nodes.add(makeSpacer(4));
+        selectionWidthNodes.add(nodes.get(nodes.size() - 1));
+        nodes.add(selectionWidthValue);
+        selectionWidthNodes.add(selectionWidthValue);
+        selectionWidthMixed = makeMixedLabel();
+        nodes.add(selectionWidthMixed);
+        selectionWidthNodes.add(selectionWidthMixed);
+
+        addTo(nodes, selectionOpacityNodes, makeSep());
+
+        addTo(nodes, selectionOpacityNodes, makeLabel(org.example.canvasproject.i18n.I18n.t("selection.opacity")));
+        addTo(nodes, selectionOpacityNodes, makeSpacer(6));
+        Slider opacitySlider = makeSlider(0.05, 1.0, currentOpacity, val -> {
+            currentOpacity = val;
+            if (onOpacityChanged != null) onOpacityChanged.accept(val);
+        });
+        opacitySlider.setPrefWidth(80);
+        selectionOpacityValue = makeValueLabel(String.format("%.0f%%", currentOpacity * 100));
+        opacitySlider.valueProperty().addListener((o, oldV, v) ->
+                selectionOpacityValue.setText(String.format("%.0f%%", v.doubleValue() * 100)));
+        nodes.add(opacitySlider);
+        selectionOpacityNodes.add(opacitySlider);
+        nodes.add(makeSpacer(4));
+        selectionOpacityNodes.add(nodes.get(nodes.size() - 1));
+        nodes.add(selectionOpacityValue);
+        selectionOpacityNodes.add(selectionOpacityValue);
+        selectionOpacityMixed = makeMixedLabel();
+        nodes.add(selectionOpacityMixed);
+        selectionOpacityNodes.add(selectionOpacityMixed);
+
+        return nodes;
+    }
+
+    private void addTo(List<Node> all, List<Node> group, Node node) {
+        all.add(node);
+        group.add(node);
+    }
+
+    private void setGroupVisible(List<Node> group, boolean visible) {
+        for (Node node : group) {
+            node.setVisible(visible);
+            node.setManaged(visible);
+        }
+    }
+
+    private Label makeMixedLabel() {
+        Label label = makeLabel(org.example.canvasproject.i18n.I18n.t("selection.mixed"));
+        label.setVisible(false);
+        label.setManaged(false);
+        return label;
+    }
+
+    /** Обновляет счётчик и пометки «разные» у уже открытой панели выделения. */
+    public void updateSelectionSummary(int count, boolean mixedColor,
+                                       boolean mixedWidth, boolean mixedOpacity,
+                                       boolean hasColor, boolean hasWidth) {
+        if (activeMode != ToolMode.SELECT) return;
+        if (selectionCountLabel != null) {
+            selectionCountLabel.setText(org.example.canvasproject.i18n.I18n.t("selection.count", count));
+        }
+        // Показываем только общие для всех выбранных типов свойства.
+        setGroupVisible(selectionColorNodes, hasColor);
+        setGroupVisible(selectionWidthNodes, hasWidth);
+        setMixed(selectionColorMixed, mixedColor);
+        setMixed(selectionWidthMixed, mixedWidth);
+        setMixed(selectionOpacityMixed, mixedOpacity);
+        if (mixedWidth && selectionWidthValue != null) {
+            selectionWidthValue.setText(org.example.canvasproject.i18n.I18n.t("selection.mixed"));
+        }
+        if (mixedOpacity && selectionOpacityValue != null) {
+            selectionOpacityValue.setText(org.example.canvasproject.i18n.I18n.t("selection.mixed"));
+        }
+    }
+
+    private void setMixed(Label label, boolean mixed) {
+        if (label == null) return;
+        label.setVisible(mixed);
+        label.setManaged(mixed);
     }
 
     private List<Node> buildTextControls() {

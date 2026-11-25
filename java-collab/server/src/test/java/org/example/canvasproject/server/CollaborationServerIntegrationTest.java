@@ -368,6 +368,95 @@ class CollaborationServerIntegrationTest {
         }
     }
 
+    @Test
+    void batchUpdateAndDeleteAreAtomicAndBroadcastToOtherClients() throws Exception {
+        TestClient owner = TestClient.connect(server.getPort());
+        TestClient guest = TestClient.connect(server.getPort());
+        TestClient viewer = TestClient.connect(server.getPort());
+        try {
+            owner.auth("Владелец группы");
+            guest.auth("Редактор группы");
+            viewer.auth("Наблюдатель группы");
+            String canvasId = owner.createCanvas("Групповые операции");
+            owner.join(canvasId);
+            String editorCode = owner.generateInvite(canvasId, "editor", 1);
+            guest.sendJson(new JSONObject().put("type", "JOIN_BY_CODE").put("code", editorCode));
+            guest.await("JOINED_CANVAS");
+            String viewerCode = owner.generateInvite(canvasId, "viewer", 1);
+            viewer.sendJson(new JSONObject().put("type", "JOIN_BY_CODE").put("code", viewerCode));
+            viewer.await("JOINED_CANVAS");
+            owner.await("USER_JOINED");
+            owner.drain();
+
+            for (int i = 0; i < 50; i++) {
+                owner.sendJson(addElement(canvasId, "group-" + i, "figure",
+                        new JSONObject().put("x", i).put("y", i).put("width", 10).put("height", 10)));
+            }
+            for (int i = 0; i < 50; i++) {
+                assertEquals("group-" + i, guest.await("ELEMENT_ADDED").getString("elementId"));
+            }
+            guest.drain();
+            viewer.drain();
+
+            // Один пакет — 50 обновлений; второй клиент видит итог, а не 50 событий.
+            org.json.JSONArray updates = new org.json.JSONArray();
+            for (int i = 0; i < 50; i++) {
+                updates.put(new JSONObject()
+                        .put("elementId", "group-" + i)
+                        .put("data", new JSONObject().put("x", 500).put("y", 600)));
+            }
+            owner.sendJson(new JSONObject()
+                    .put("type", "UPDATE_ELEMENTS")
+                    .put("canvasId", canvasId)
+                    .put("updates", updates));
+            JSONObject updated = guest.await("ELEMENTS_UPDATED");
+            assertEquals(50, updated.getJSONArray("updates").length());
+
+            // Пакет с повторяющимся id отклоняется целиком и не меняет доску.
+            owner.sendJson(new JSONObject()
+                    .put("type", "UPDATE_ELEMENTS")
+                    .put("canvasId", canvasId)
+                    .put("updates", new org.json.JSONArray()
+                            .put(new JSONObject().put("elementId", "group-0")
+                                    .put("data", new JSONObject().put("x", 9999)))
+                            .put(new JSONObject().put("elementId", "group-0")
+                                    .put("data", new JSONObject().put("x", 9999)))));
+            assertTrue(owner.await("ERROR").getString("message").contains("elementId"));
+
+            owner.sendJson(new JSONObject().put("type", "JOIN_CANVAS").put("canvasId", canvasId));
+            JSONObject joined = owner.await("JOINED_CANVAS");
+            for (int i = 0; i < joined.getJSONArray("elements").length(); i++) {
+                JSONObject data = joined.getJSONArray("elements").getJSONObject(i).getJSONObject("data");
+                assertEquals(500, data.getInt("x"), "пакет должен примениться атомарно");
+                assertEquals(600, data.getInt("y"));
+            }
+
+            // Наблюдатель не может менять элементы даже пакетом.
+            viewer.sendJson(new JSONObject()
+                    .put("type", "DELETE_ELEMENTS")
+                    .put("canvasId", canvasId)
+                    .put("elementIds", new org.json.JSONArray().put("group-0")));
+            assertTrue(viewer.await("ERROR").getString("message").contains("редактор"));
+
+            // Пакетное удаление 25 элементов приходит одним сообщением.
+            org.json.JSONArray ids = new org.json.JSONArray();
+            for (int i = 0; i < 25; i++) ids.put("group-" + i);
+            owner.sendJson(new JSONObject()
+                    .put("type", "DELETE_ELEMENTS")
+                    .put("canvasId", canvasId)
+                    .put("elementIds", ids));
+            JSONObject deleted = guest.await("ELEMENTS_DELETED");
+            assertEquals(25, deleted.getJSONArray("elementIds").length());
+
+            owner.sendJson(new JSONObject().put("type", "JOIN_CANVAS").put("canvasId", canvasId));
+            assertEquals(25, owner.await("JOINED_CANVAS").getJSONArray("elements").length());
+        } finally {
+            owner.close();
+            guest.close();
+            viewer.close();
+        }
+    }
+
     private static JSONObject addElement(String canvasId, String id, String type, JSONObject data) {
         return new JSONObject()
                 .put("type", "ADD_ELEMENT")

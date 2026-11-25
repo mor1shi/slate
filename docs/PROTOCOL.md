@@ -31,6 +31,8 @@
 | `ADD_ELEMENT` | `canvasId`, `elementId`, `elementType`, `data` | editor/owner; id ≤ 128, type ≤ 32, data ≤ 6 МБ |
 | `UPDATE_ELEMENT` | `canvasId`, `elementId`, `data` | editor/owner; data ≤ 6 МБ |
 | `DELETE_ELEMENT` | `canvasId`, `elementId` | editor/owner |
+| `UPDATE_ELEMENTS` | `canvasId`, `updates`: массив `{elementId, data}` | editor/owner; до 10 000 элементов, id уникальны, data ≤ 6 МБ каждый; весь пакет проверяется до записи |
+| `DELETE_ELEMENTS` | `canvasId`, `elementIds`: массив id | editor/owner; до 10 000 элементов, id уникальны |
 | `CURSOR_MOVE` | `x`, `y` | любой участник активной доски; `canvasId` не используется |
 
 ## Сервер → клиент
@@ -53,6 +55,8 @@
 | `ELEMENT_ADDED` | `canvasId`, `elementId`, `elementType`, `data`, `addedBy`, `username` |
 | `ELEMENT_UPDATED` | `canvasId`, `elementId`, `data`, `updatedBy` |
 | `ELEMENT_DELETED` | `canvasId`, `elementId`, `deletedBy` |
+| `ELEMENTS_UPDATED` | `canvasId`, `updates`: массив `{elementId, data}`, `updatedBy` |
+| `ELEMENTS_DELETED` | `canvasId`, `elementIds`: массив id, `deletedBy` |
 | `CURSOR_MOVED` | `userId`, `username`, `color`, `x`, `y` |
 | `USER_JOINED` / `USER_LEFT` / `USER_UPDATED` | `userId`, `username`, `color` |
 | `ERROR` | `message` |
@@ -77,6 +81,11 @@
 
 ## Ограничения и ошибки
 
+- Пакетные `UPDATE_ELEMENTS`/`DELETE_ELEMENTS` применяются одной транзакцией
+  репозитория (`updateMany`/`deleteMany`). Ошибка валидации любого элемента
+  отклоняет весь пакет и присылает `ERROR`; частичной записи не бывает.
+  Инициатору пакет не переотправляется (как и одиночные изменения), остальные
+  участники получают одно сообщение `ELEMENTS_UPDATED`/`ELEMENTS_DELETED`.
 - Кадр длиннее 8 000 000 символов закрывает соединение с кодом 1009 (проверка
   идёт после приёма кадра; в байтах UTF-8 это может быть больше).
 - После подключения на авторизацию даётся 20 секунд (`AUTH_TIMEOUT_SECONDS`).
