@@ -23,6 +23,7 @@ public class SessionManager {
     private String activeCanvasId;
     private String activeCanvasName;
     private String activeCanvasRole = "editor";
+    private boolean localMode = false;
 
     private final List<Consumer<JSONObject>> messageListeners = new CopyOnWriteArrayList<>();
     private volatile Runnable connectionLostListener;
@@ -131,6 +132,15 @@ public class SessionManager {
 
     public boolean isViewer() {
         return "viewer".equals(activeCanvasRole);
+    }
+
+    /** Доска открыта из локального хранилища: сеть и совместная работа выключены. */
+    public boolean isLocalMode() {
+        return localMode;
+    }
+
+    public void setLocalMode(boolean localMode) {
+        this.localMode = localMode;
     }
 
     public boolean isOwner() {

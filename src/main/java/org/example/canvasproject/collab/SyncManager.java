@@ -185,7 +185,20 @@ public class SyncManager {
     }
 
 
-    private JSONObject serializeElement(Selectable el) {
+    /** Снимок всех элементов в серверном формате — для локального сохранения и `.slate`. */
+    public JSONArray serializeAll() {
+        JSONArray result = new JSONArray();
+        for (Selectable el : model.elements()) {
+            JSONObject item = new JSONObject();
+            item.put("elementId", resolveId(el));
+            item.put("elementType", el.getType());
+            item.put("data", serializeElement(el));
+            result.put(item);
+        }
+        return result;
+    }
+
+    public JSONObject serializeElement(Selectable el) {
         JSONObject data = new JSONObject();
         switch (el.getType()) {
             case "line"   -> serializeLine(el, data);

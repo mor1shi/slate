@@ -38,6 +38,8 @@ import org.kordamp.ikonli.javafx.FontIcon;
 import org.example.canvasproject.collab.RemoteCursorOverlay;
 import org.example.canvasproject.collab.SessionManager;
 import org.example.canvasproject.collab.SyncManager;
+import org.example.canvasproject.storage.LocalBoard;
+import org.example.canvasproject.storage.LocalBoardService;
 import org.example.canvasproject.ui.InviteCodeDialog;
 
 import javax.imageio.ImageIO;
@@ -104,6 +106,8 @@ public class controller {
 
     private SyncManager syncManager;
     private RemoteCursorOverlay remoteCursors;
+    private LocalBoard localBoard;
+    private Timeline localAutosave;
     private final java.util.function.Consumer<org.json.JSONObject> serverMessageListener =
             this::handleServerMessage;
 
@@ -196,7 +200,7 @@ public class controller {
             if (syncManager != null) syncManager.notifyUpdated(el);
         });
 
-        if (session.isConnected()) {
+        if (session.isConnected() && !session.isLocalMode()) {
             syncManager.setSyncEnabled(true);
         }
 
@@ -300,6 +304,35 @@ public class controller {
         }
     }
 
+    /** Открывает доску из локального SQLite-хранилища: без сервера и сети. */
+    public void initLocalBoard(LocalBoard board) {
+        this.localBoard = board;
+        SessionManager session = SessionManager.getInstance();
+        session.setLocalMode(true);
+        session.setActiveCanvas(board.getId(), board.getName(), "owner");
+
+        setCanvasSize(board.getWidth(), board.getHeight());
+        syncManager.loadCanvasElements(board.getElements());
+        if (inviteBtn != null) inviteBtn.setDisable(true);
+        updateConnection(false);
+
+        localAutosave = new Timeline(new KeyFrame(Duration.seconds(2), e -> saveLocalNow()));
+        localAutosave.setCycleCount(Timeline.INDEFINITE);
+        localAutosave.play();
+    }
+
+    private void saveLocalNow() {
+        if (localBoard == null || syncManager == null) return;
+        localBoard.setWidth(canvasWidth);
+        localBoard.setHeight(canvasHeight);
+        localBoard.setElements(syncManager.serializeAll());
+        try {
+            LocalBoardService.getInstance().save(localBoard);
+        } catch (Exception e) {
+            showToast("Не удалось сохранить доску: " + e.getMessage(), true);
+        }
+    }
+
     private void onCanvasDeletedWhileViewing() {
         showToast("Канвас был удалён владельцем", true);
         javafx.animation.PauseTransition delay = new javafx.animation.PauseTransition(Duration.seconds(2));
@@ -399,6 +432,12 @@ public class controller {
         SessionManager session = SessionManager.getInstance();
         session.removeMessageListener(serverMessageListener);
         session.setConnectionLostListener(null);
+        if (localAutosave != null) {
+            localAutosave.stop();
+            localAutosave = null;
+        }
+        if (localBoard != null) saveLocalNow();
+        session.setLocalMode(false);
         if (session.isConnected() && session.getActiveCanvasId() != null) {
             session.getClient().leaveCanvas(session.getActiveCanvasId());
         }

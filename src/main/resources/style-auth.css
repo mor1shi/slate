@@ -521,6 +521,15 @@
     -fx-text-fill: -app-faint;
 }
 
+.canvas-card-badge {
+    -fx-background-color: -app-surface-raised;
+    -fx-background-radius: 6;
+    -fx-border-color: -app-border;
+    -fx-border-radius: 6;
+    -fx-padding: 1 6 1 6;
+    -fx-text-fill: -app-muted;
+}
+
 .meta-label {
     -fx-font-size: 12px;
     -fx-text-fill: -app-muted;

@@ -24,6 +24,8 @@ import org.example.canvasproject.collab.CollaborationClient;
 import org.example.canvasproject.collab.DeviceIdentity;
 import org.example.canvasproject.collab.SessionManager;
 import org.example.canvasproject.i18n.I18n;
+import org.example.canvasproject.storage.LocalBoard;
+import org.example.canvasproject.storage.LocalBoardService;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -70,6 +72,8 @@ public class CanvasListController {
 
     private final SessionManager session = SessionManager.getInstance();
     private final List<CanvasItem> items = new ArrayList<>();
+    private final List<LocalBoard> localBoards = new ArrayList<>();
+    private JSONArray remoteCanvases = new JSONArray();
 
     private String selectedId = null;
     private int pendingWidth  = 1920;
@@ -88,7 +92,7 @@ public class CanvasListController {
         setupSearch();
         setupShortcuts();
         updateSelectionActions();
-        showEmpty(true, false);
+        refreshLocalBoards();
 
         if (session.isConnected() && session.getClient() != null) {
             authenticate();
@@ -354,7 +358,14 @@ public class CanvasListController {
         dialog.showAndWait().ifPresent(data -> {
             pendingWidth  = data.optInt("width", 1920);
             pendingHeight = data.optInt("height", 1080);
-            session.getClient().createCanvas(data.optString("name"), pendingWidth, pendingHeight);
+            if (session.isConnected() && session.getClient() != null) {
+                session.getClient().createCanvas(data.optString("name"), pendingWidth, pendingHeight);
+            } else {
+                LocalBoardService.getInstance().create(
+                        data.optString("name"), pendingWidth, pendingHeight);
+                refreshLocalBoards();
+                showInfo("Доска создана локально");
+            }
         });
     }
 
@@ -443,11 +454,42 @@ public class CanvasListController {
     private void openSelected() {
         if (selectedId == null) return;
         CanvasItem item = findSelected();
-        if (item != null) {
-            pendingWidth  = item.width;
-            pendingHeight = item.height;
+        if (item == null) return;
+        pendingWidth  = item.width;
+        pendingHeight = item.height;
+
+        if (item.local) {
+            LocalBoardService.getInstance().find(item.id).ifPresentOrElse(
+                    this::openLocalBoard,
+                    () -> setStatus("Локальная доска не найдена", true));
+        } else {
+            session.getClient().joinCanvas(selectedId);
         }
-        session.getClient().joinCanvas(selectedId);
+    }
+
+    /** Открывает доску из SQLite: сеть не используется, все правки идут в файл. */
+    private void openLocalBoard(LocalBoard board) {
+        try {
+            var controller = showCanvasScene(board.getName());
+            if (controller == null) return;
+            controller.initLocalBoard(board);
+        } catch (Exception e) {
+            log.log(Level.WARNING, "Cannot open local board " + board.getId(), e);
+            setStatus("Ошибка открытия доски: " + e.getMessage(), true);
+        }
+    }
+
+    private org.example.canvasproject.controller showCanvasScene(String canvasName) throws Exception {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/canvas-view.fxml"));
+        AnchorPane root = loader.load();
+        var stage = (javafx.stage.Stage) cardsPane.getScene().getWindow();
+        double w = stage.getWidth(), h = stage.getHeight();
+        stage.setScene(new Scene(root, w, h));
+        stage.setTitle("Slate — " + canvasName);
+        stage.setMinWidth(900);
+        stage.setMinHeight(600);
+        Object ctrl = loader.getController();
+        return ctrl instanceof org.example.canvasproject.controller controller ? controller : null;
     }
 
     private void renameSelected() {
@@ -461,7 +503,14 @@ public class CanvasListController {
                 item.name,
                 I18n.t("button.rename"))
                 .ifPresent(name -> {
-                    if (!name.isBlank()) session.getClient().renameCanvas(item.id, name.trim());
+                    if (name.isBlank()) return;
+                    if (item.local) {
+                        LocalBoardService.getInstance().rename(item.id, name.trim());
+                        refreshLocalBoards();
+                        showInfo("Название изменено");
+                    } else {
+                        session.getClient().renameCanvas(item.id, name.trim());
+                    }
                 });
     }
 
@@ -483,7 +532,14 @@ public class CanvasListController {
                 I18n.t("button.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
         alert.getButtonTypes().setAll(deleteType, cancelType);
         alert.showAndWait().ifPresent(btn -> {
-            if (btn == deleteType) session.getClient().deleteCanvas(item.id);
+            if (btn != deleteType) return;
+            if (item.local) {
+                LocalBoardService.getInstance().delete(item.id);
+                refreshLocalBoards();
+                showInfo("Доска удалена");
+            } else {
+                session.getClient().deleteCanvas(item.id);
+            }
         });
     }
 
@@ -497,28 +553,46 @@ public class CanvasListController {
     /* ------------------------------------------------------------------ */
 
     private void populateCards(JSONArray arr) {
+        remoteCanvases = arr == null ? new JSONArray() : arr;
+        rebuildItems();
+    }
+
+    /** Локальные доски и серверные живут в одном списке; локальные — сверху. */
+    private void rebuildItems() {
         items.clear();
         selectedId = null;
         updateSelectionActions();
 
-        if (arr != null) {
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject c = arr.getJSONObject(i);
-                String id = c.optString("id", "");
-                int w = c.optInt("width", c.optInt("canvasWidth", 1920));
-                int h = c.optInt("height", c.optInt("canvasHeight", 1080));
-                if (w <= 0) w = 1920;
-                if (h <= 0) h = 1080;
-                CanvasSizeCache.put(id, w, h);
-                items.add(new CanvasItem(
-                        id,
-                        c.optString("name", "Без названия"),
-                        w, h,
-                        c.optLong("updatedAt", 0)));
-            }
+        for (LocalBoard board : localBoards) {
+            CanvasSizeCache.put(board.getId(), board.getWidth(), board.getHeight());
+            items.add(new CanvasItem(board.getId(), board.getName(),
+                    board.getWidth(), board.getHeight(), board.getUpdatedAt(), true));
         }
-        items.sort(Comparator.comparingLong(CanvasItem::updatedAt).reversed());
+        for (int i = 0; i < remoteCanvases.length(); i++) {
+            JSONObject c = remoteCanvases.getJSONObject(i);
+            String id = c.optString("id", "");
+            if (id.isBlank()) continue;
+            int w = c.optInt("width", c.optInt("canvasWidth", 1920));
+            int h = c.optInt("height", c.optInt("canvasHeight", 1080));
+            if (w <= 0) w = 1920;
+            if (h <= 0) h = 1080;
+            CanvasSizeCache.put(id, w, h);
+            items.add(new CanvasItem(id, c.optString("name", "Без названия"),
+                    w, h, c.optLong("updatedAt", 0), false));
+        }
+        items.sort(Comparator.comparing(CanvasItem::local).reversed()
+                .thenComparing(Comparator.comparingLong(CanvasItem::updatedAt).reversed()));
         renderCards();
+    }
+
+    private void refreshLocalBoards() {
+        localBoards.clear();
+        try {
+            localBoards.addAll(LocalBoardService.getInstance().list());
+        } catch (Exception e) {
+            log.log(Level.WARNING, "Cannot read local boards", e);
+        }
+        rebuildItems();
     }
 
     private void renderCards() {
@@ -565,6 +639,11 @@ public class CanvasListController {
         updated.getStyleClass().add("canvas-card-time");
 
         card.getChildren().addAll(name, spacer, size, updated);
+        if (item.local) {
+            Label badge = new Label("локально");
+            badge.getStyleClass().addAll("canvas-card-time", "canvas-card-badge");
+            card.getChildren().add(badge);
+        }
 
         card.setOnMouseClicked(e -> {
             selectCard(item.id);
@@ -690,17 +769,8 @@ public class CanvasListController {
 
         try {
             log.info("Opening canvas " + canvasId + " (" + canvasName + ")");
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/canvas-view.fxml"));
-            AnchorPane root = loader.load();
-            var stage = (javafx.stage.Stage) cardsPane.getScene().getWindow();
-            double w = stage.getWidth(), h = stage.getHeight();
-            stage.setScene(new Scene(root, w, h));
-            stage.setTitle("Slate — " + canvasName);
-            stage.setMinWidth(900);
-            stage.setMinHeight(600);
-
-            Object ctrl = loader.getController();
-            if (ctrl instanceof org.example.canvasproject.controller controller) {
+            var controller = showCanvasScene(canvasName);
+            if (controller != null) {
                 controller.setCanvasSize(width, height);
                 controller.initFromServer(msg.optJSONArray("elements"));
             }
@@ -770,5 +840,6 @@ public class CanvasListController {
         button.setAccessibleText(label);
     }
 
-    record CanvasItem(String id, String name, int width, int height, long updatedAt) { }
+    record CanvasItem(String id, String name, int width, int height,
+                      long updatedAt, boolean local) { }
 }
