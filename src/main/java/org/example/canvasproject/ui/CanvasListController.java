@@ -92,6 +92,9 @@ public class CanvasListController {
 
     @FXML
     public void initialize() {
+        // Список досок — выход из solo-режима: команды снова идут в сокет (если он есть).
+        if (session.getClient() != null) session.getClient().setLocalTransport(null);
+        session.setLocalMode(false);
         deviceLabel.setText(DeviceIdentity.getInstance().getName());
         configureIcons();
         bindActions();
