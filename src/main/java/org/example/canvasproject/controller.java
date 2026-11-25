@@ -186,6 +186,13 @@ public class controller {
         syncManager   = new SyncManager(model, session);
         remoteCursors = new RemoteCursorOverlay(canvasGroup);
         syncManager.setCursorCallback(remoteCursors::update);
+        syncManager.setAssetStore(LocalBoardService.getInstance().storage().assets());
+        syncManager.setAssetRequest(assetId -> {
+            SessionManager s = SessionManager.getInstance();
+            if (s.getClient() != null && s.isConnected() && !s.isLocalMode()) {
+                s.getClient().getAsset(assetId);
+            }
+        });
 
         syncManager.setOnElementAdded(el -> {
             selection.attachInteraction(el);
@@ -218,8 +225,10 @@ public class controller {
         SessionManager session = SessionManager.getInstance();
         String type = msg.optString("type", "");
         switch (type) {
-            case "ELEMENT_ADDED", "ELEMENT_DELETED", "ELEMENT_UPDATED", "CURSOR_MOVED" ->
+            case "CURSOR_MOVED" ->
                     syncManager.onServerMessage(msg);
+            case "ASSET_DATA" -> syncManager.applyAsset(msg.optString("assetId"),
+                    java.util.Base64.getDecoder().decode(msg.optString("data", "")));
             case "AUTH_OK" -> rejoinAfterReconnect();
             case "JOINED_CANVAS" -> {
                 if (msg.optString("canvasId").equals(session.getActiveCanvasId())) {
@@ -975,24 +984,25 @@ public class controller {
         File file = fc.showOpenDialog(pane.getScene().getWindow());
         if (file == null) return;
         try {
-            Image img = new Image(file.toURI().toString(), true);
-            Runnable finishLoading = () -> {
-                if (img.isError() || img.getWidth() <= 0 || img.getHeight() <= 0) {
-                    showToast("Не удалось прочитать изображение: " + file.getName(), true);
-                    return;
-                }
-                double ratio = Math.min(1, Math.min(400 / img.getWidth(), 300 / img.getHeight()));
-                imageElement imgEl = new imageElement(
-                    img, 100, 100, img.getWidth() * ratio, img.getHeight() * ratio);
-                selection.add(imgEl);
-                if (syncManager != null) syncManager.notifyAdded(imgEl);
-            };
-            if (img.getProgress() >= 1) {
-                finishLoading.run();
-            } else {
-                img.progressProperty().addListener((obs, oldProgress, progress) -> {
-                    if (progress.doubleValue() >= 1) finishLoading.run();
-                });
+            byte[] raw = java.nio.file.Files.readAllBytes(file.toPath());
+            org.example.canvasproject.storage.ImageAssets.Prepared prepared =
+                    org.example.canvasproject.storage.ImageAssets.prepare(raw);
+            org.example.canvasproject.storage.AssetStore assets =
+                    LocalBoardService.getInstance().storage().assets();
+            String assetId = assets.put(prepared.bytes());
+
+            Image img = new Image(new java.io.ByteArrayInputStream(prepared.bytes()));
+            double ratio = Math.min(1, Math.min(400 / img.getWidth(), 300 / img.getHeight()));
+            imageElement imgEl = new imageElement(
+                img, 100, 100, img.getWidth() * ratio, img.getHeight() * ratio);
+            imgEl.setAssetId(assetId);
+            imgEl.setAssetMime(prepared.mimeType());
+            selection.add(imgEl);
+            if (syncManager != null) syncManager.notifyAdded(imgEl);
+
+            SessionManager session = SessionManager.getInstance();
+            if (session.getClient() != null && session.isConnected() && !session.isLocalMode()) {
+                session.getClient().putAsset(assetId, prepared.mimeType(), prepared.bytes());
             }
         } catch (Exception ex) {
             showToast("Ошибка загрузки изображения: " + ex.getMessage(), true);

@@ -4,6 +4,7 @@ import javafx.application.Platform;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import org.example.canvasproject.*;
+import org.example.canvasproject.storage.AssetStore;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -12,8 +13,11 @@ import java.io.File;
 import java.nio.file.Files;
 import java.net.URI;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 
 public class SyncManager {
@@ -26,6 +30,10 @@ public class SyncManager {
 
     private CursorUpdateCallback cursorCallback;
     private java.util.function.Consumer<Selectable> onElementAdded;
+    private AssetStore assetStore;
+    private java.util.function.Consumer<String> assetRequest;
+    private Runnable onAssetApplied;
+    private final Set<String> missingAssets = new HashSet<>();
 
     private final IdentityHashMap<Selectable, String> serverIdMap = new IdentityHashMap<>();
 
@@ -41,6 +49,34 @@ public class SyncManager {
     public void setCursorCallback(CursorUpdateCallback cb) { this.cursorCallback = cb; }
     public void setOnElementAdded(java.util.function.Consumer<Selectable> cb) { this.onElementAdded = cb; }
     public void setSyncEnabled(boolean enabled) { this.syncEnabled = enabled; }
+    public void setAssetStore(AssetStore assetStore) { this.assetStore = assetStore; }
+    /** Запрос файла у сервера, если его нет в локальном хранилище. */
+    public void setAssetRequest(java.util.function.Consumer<String> request) {
+        this.assetRequest = request;
+    }
+    public void setOnAssetApplied(Runnable callback) { this.onAssetApplied = callback; }
+
+    /** Кладёт полученные с сервера байты в открытые элементы с тем же assetId. */
+    public void applyAsset(String assetId, byte[] bytes) {
+        if (assetId == null || bytes == null || bytes.length == 0) return;
+        try {
+            if (assetStore != null) assetStore.put(bytes);
+        } catch (Exception e) {
+            log.warning("Cannot cache asset " + assetId + ": " + e.getMessage());
+        }
+        Image image = new Image(new ByteArrayInputStream(bytes));
+        Platform.runLater(() -> {
+            boolean changed = false;
+            for (Selectable el : model.elements()) {
+                if (el instanceof imageElement img && assetId.equals(img.getAssetId())
+                        && img.getImage() != null && img.getImage().getWidth() <= 1) {
+                    img.setImage(image);
+                    changed = true;
+                }
+            }
+            if (changed && onAssetApplied != null) onAssetApplied.run();
+        });
+    }
     public boolean isSyncEnabled() {
         return syncEnabled && session.isConnected() && session.isLoggedIn();
     }
@@ -275,6 +311,13 @@ public class SyncManager {
         data.put("width",  img.getFitWidth());
         data.put("height", img.getFitHeight());
 
+        // Новый путь: файл лежит в AssetStore, в элементе только ссылка.
+        if (img.getAssetId() != null && !img.getAssetId().isBlank()) {
+            data.put("assetId", img.getAssetId());
+            data.put("mime", img.getAssetMime() == null ? "image/png" : img.getAssetMime());
+            return;
+        }
+
         // БАГ-ФИХ: если изображение было создано из base64 (url == null),
         // image.getUrl() вернёт null и данные потеряются.
         // Используем кешированные данные из imageElement.
@@ -400,6 +443,29 @@ public class SyncManager {
         double y = data.optDouble("y", 0);
         double w = data.optDouble("width", 200);
         double h = data.optDouble("height", 150);
+
+        String assetId = data.optString("assetId", "");
+        if (!assetId.isBlank()) {
+            String mime = data.optString("mime", "image/png");
+            Optional<byte[]> bytes = assetStore == null
+                    ? Optional.empty() : assetStore.get(assetId);
+            if (bytes.isPresent()) {
+                imageElement el = new imageElement(new Image(new ByteArrayInputStream(bytes.get())),
+                        x, y, w, h);
+                el.setAssetId(assetId);
+                el.setAssetMime(mime);
+                return el;
+            }
+            // Файла ещё нет: показываем прозрачную заглушку и просим его у сервера.
+            missingAssets.add(assetId);
+            if (assetRequest != null) assetRequest.accept(assetId);
+            Image blank = new Image(new ByteArrayInputStream(new byte[]{
+                    (byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10}));
+            imageElement el = new imageElement(blank, x, y, w, h);
+            el.setAssetId(assetId);
+            el.setAssetMime(mime);
+            return el;
+        }
 
         String imageData = data.optString("imageData", "");
         if (imageData.isEmpty()) {

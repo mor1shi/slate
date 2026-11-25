@@ -58,7 +58,22 @@ public final class LocalBoardService {
     }
 
     public Optional<LocalBoard> find(String id) {
-        return storage.boards().find(id).map(board -> toLocal(board, elementsJson(id)));
+        return storage.boards().find(id).map(board -> {
+            JSONArray elements = elementsJson(id);
+            List<ElementUpdate> migrated = new ArrayList<>();
+            for (int i = 0; i < elements.length(); i++) {
+                JSONObject item = elements.optJSONObject(i);
+                if (item == null) continue;
+                JSONObject data = item.optJSONObject("data");
+                if (AssetMigration.migrateElementData(data, storage.assets())) {
+                    migrated.add(new ElementUpdate(item.optString("elementId"), data));
+                }
+            }
+            if (!migrated.isEmpty()) {
+                storage.elements().updateMany(id, migrated);
+            }
+            return toLocal(board, elements);
+        });
     }
 
     public LocalBoard create(String name, int width, int height) {

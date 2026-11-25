@@ -26,6 +26,9 @@ public class imageElement extends ImageView implements Selectable {
      * Устанавливается при десериализации и при первом кодировании файла.
      */
     private String cachedImageData;
+    /** SHA-256 файла в AssetStore; так изображение не раздувает документ доски. */
+    private String assetId;
+    private String assetMime;
 
     public imageElement(Image image, double x, double y, double width, double height) {
         super(image);
@@ -42,6 +45,11 @@ public class imageElement extends ImageView implements Selectable {
 
     /** Устанавливает кешированные данные (вызывается при десериализации). */
     public void setCachedImageData(String data) { this.cachedImageData = data; }
+
+    public String getAssetId() { return assetId; }
+    public void setAssetId(String assetId) { this.assetId = assetId; }
+    public String getAssetMime() { return assetMime; }
+    public void setAssetMime(String mime) { this.assetMime = mime; }
 
     @Override public String getElementId() { return id; }
     @Override public String getType() { return "image"; }
@@ -102,15 +110,21 @@ public class imageElement extends ImageView implements Selectable {
     private static class State implements ElementMemento {
         final double x, y, w, h;
         final String cachedImageData;
-        State(double x, double y, double w, double h, String cached) {
+        final String assetId;
+        final String assetMime;
+        State(double x, double y, double w, double h, String cached, String assetId,
+              String assetMime) {
             this.x = x; this.y = y; this.w = w; this.h = h;
             this.cachedImageData = cached;
+            this.assetId = assetId;
+            this.assetMime = assetMime;
         }
     }
 
     @Override
     public ElementMemento save() {
-        return new State(getLayoutX(), getLayoutY(), getFitWidth(), getFitHeight(), cachedImageData);
+        return new State(getLayoutX(), getLayoutY(), getFitWidth(), getFitHeight(),
+                cachedImageData, assetId, assetMime);
     }
 
     @Override
@@ -122,5 +136,7 @@ public class imageElement extends ImageView implements Selectable {
         setFitHeight(s.h);
         // Восстанавливаем кеш, чтобы сериализация после undo работала корректно
         if (s.cachedImageData != null) this.cachedImageData = s.cachedImageData;
+        this.assetId = s.assetId;
+        this.assetMime = s.assetMime;
     }
 }

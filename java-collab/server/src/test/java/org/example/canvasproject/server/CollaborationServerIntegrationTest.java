@@ -331,6 +331,43 @@ class CollaborationServerIntegrationTest {
         }
     }
 
+    @Test
+    void assetsAreAddressedByHashAndRequireAuthentication() throws Exception {
+        TestClient owner = TestClient.connect(server.getPort());
+        try {
+            owner.auth("Ассеты");
+            byte[] bytes = new byte[]{1, 2, 3, 4, 5};
+            String hash = org.example.canvasproject.storage.FileAssetStore.hash(bytes);
+            String payload = java.util.Base64.getEncoder().encodeToString(bytes);
+
+            owner.sendJson(new JSONObject().put("type", "ASSET_PUT")
+                    .put("assetId", hash).put("mime", "image/png").put("data", payload));
+            assertEquals(hash, owner.await("ASSET_STORED").getString("assetId"));
+
+            owner.sendJson(new JSONObject().put("type", "ASSET_GET").put("assetId", hash));
+            assertEquals(payload, owner.await("ASSET_DATA").getString("data"));
+
+            // Чужой хеш не должен пройти: адрес — это содержимое файла.
+            owner.sendJson(new JSONObject().put("type", "ASSET_PUT")
+                    .put("assetId", "a".repeat(64)).put("data", payload));
+            owner.await("ERROR");
+
+            owner.sendJson(new JSONObject().put("type", "ASSET_GET")
+                    .put("assetId", "0".repeat(64)));
+            owner.await("ERROR");
+
+            TestClient anonymous = TestClient.connect(server.getPort());
+            try {
+                anonymous.sendJson(new JSONObject().put("type", "ASSET_GET").put("assetId", hash));
+                anonymous.await("ERROR");
+            } finally {
+                anonymous.close();
+            }
+        } finally {
+            owner.close();
+        }
+    }
+
     private static JSONObject addElement(String canvasId, String id, String type, JSONObject data) {
         return new JSONObject()
                 .put("type", "ADD_ELEMENT")

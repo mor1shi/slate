@@ -3,6 +3,8 @@ package org.example.canvasproject.server;
 import org.bson.Document;
 import org.example.canvasproject.models.*;
 import org.example.canvasproject.service.*;
+import org.example.canvasproject.storage.AssetStore;
+import org.example.canvasproject.storage.FileAssetStore;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -41,6 +43,7 @@ public class CollaborationServer extends WebSocketServer {
     private final AuthService   auth   = AuthService.getInstance();
     private final MongoDBService mongo  = MongoDBService.getInstance();
     private final InviteService invite = InviteService.getInstance();
+    private final AssetStore assets = new FileAssetStore(ServerConfig.assetsDir());
 
     private final boolean allowNewDevices = ServerConfig.allowNewDevices();
     private final int maxMessagesPer10s  = ServerConfig.maxMessagesPer10s();
@@ -150,6 +153,8 @@ public class CollaborationServer extends WebSocketServer {
                 case "DELETE_ELEMENT" -> handleDeleteElement(conn, msg);
                 case "UPDATE_ELEMENT" -> handleUpdateElement(conn, msg);
                 case "CURSOR_MOVE"    -> handleCursorMove(conn, msg);
+                case "ASSET_PUT"      -> handleAssetPut(conn, msg);
+                case "ASSET_GET"      -> handleAssetGet(conn, msg);
                 default               -> send(conn, error("Unknown message type: " + type));
             }
         } catch (Exception e) {
@@ -552,6 +557,56 @@ public class CollaborationServer extends WebSocketServer {
         resp.put("type",     "INVITE_REVOKED");
         resp.put("code",     code);
         resp.put("canvasId", canvasId);
+        send(conn, resp);
+    }
+
+    private void handleAssetPut(WebSocket conn, JSONObject msg) {
+        Session s = requireAuth(conn, msg);
+        if (s == null) return;
+
+        String assetId = msg.optString("assetId", "");
+        String payload = msg.optString("data", "");
+        if (!assetId.matches("[0-9a-f]{64}") || payload.isEmpty()) {
+            send(conn, error("Некорректный ассет"));
+            return;
+        }
+        // Лимит base64 ~ 4/3 от бинарного размера.
+        if (payload.length() > 23_000_000) {
+            send(conn, error("Ассет слишком большой"));
+            return;
+        }
+        try {
+            byte[] bytes = java.util.Base64.getDecoder().decode(payload);
+            String actual = FileAssetStore.hash(bytes);
+            if (!actual.equals(assetId)) {
+                send(conn, error("Хеш ассета не совпадает"));
+                return;
+            }
+            assets.put(bytes);
+            send(conn, new JSONObject().put("type", "ASSET_STORED").put("assetId", assetId));
+        } catch (IllegalArgumentException e) {
+            send(conn, error("Ассет отклонён: " + e.getMessage()));
+        }
+    }
+
+    private void handleAssetGet(WebSocket conn, JSONObject msg) {
+        Session s = requireAuth(conn, msg);
+        if (s == null) return;
+
+        String assetId = msg.optString("assetId", "");
+        if (!assetId.matches("[0-9a-f]{64}")) {
+            send(conn, error("Некорректный ассет"));
+            return;
+        }
+        java.util.Optional<byte[]> bytes = assets.get(assetId);
+        if (bytes.isEmpty()) {
+            send(conn, error("Файл не найден: " + assetId.substring(0, 8)));
+            return;
+        }
+        JSONObject resp = new JSONObject();
+        resp.put("type",    "ASSET_DATA");
+        resp.put("assetId", assetId);
+        resp.put("data",    java.util.Base64.getEncoder().encodeToString(bytes.get()));
         send(conn, resp);
     }
 

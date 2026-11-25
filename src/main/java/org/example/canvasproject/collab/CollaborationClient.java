@@ -259,6 +259,25 @@ public class CollaborationClient extends WebSocketClient {
         sendMessage(msg);
     }
 
+    /** Заранее выгружает картинку на сервер: в элементе останется только хеш. */
+    public void putAsset(String assetId, String mime, byte[] bytes) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",    "ASSET_PUT");
+        msg.put("token",   savedToken);
+        msg.put("assetId", assetId);
+        msg.put("mime",    mime == null ? "image/png" : mime);
+        msg.put("data",    java.util.Base64.getEncoder().encodeToString(bytes));
+        sendMessage(msg);
+    }
+
+    public void getAsset(String assetId) {
+        JSONObject msg = new JSONObject();
+        msg.put("type",    "ASSET_GET");
+        msg.put("token",   savedToken);
+        msg.put("assetId", assetId);
+        sendMessage(msg);
+    }
+
     public void sendCursorMove(String canvasId, double x, double y) {
         JSONObject msg = new JSONObject();
         msg.put("type",     "CURSOR_MOVE");

@@ -39,6 +39,14 @@ public final class ServerConfig {
         return intEnv("MAX_MESSAGES_PER_10S", 600);
     }
 
+    /** Каталог картинок-ассетов. Один и тот же файл хранится один раз по SHA-256. */
+    public static java.nio.file.Path assetsDir() {
+        String dir = System.getenv("SLATE_ASSETS_DIR");
+        if (dir != null && !dir.isBlank()) return java.nio.file.Paths.get(dir);
+        return java.nio.file.Paths.get(System.getProperty("user.home"),
+                ".local", "share", "canvasproject", "assets");
+    }
+
     public static int authTimeoutSeconds() {
         return intEnv("AUTH_TIMEOUT_SECONDS", 20);
     }
