@@ -16,6 +16,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import javafx.util.Duration;
 import org.example.canvasproject.CanvasSizeCache;
@@ -26,10 +27,13 @@ import org.example.canvasproject.collab.SessionManager;
 import org.example.canvasproject.i18n.I18n;
 import org.example.canvasproject.storage.LocalBoard;
 import org.example.canvasproject.storage.LocalBoardService;
+import org.example.canvasproject.storage.SlateFileException;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -58,6 +62,8 @@ public class CanvasListController {
     @FXML private Button     openBtn;
     @FXML private Button     renameBtn;
     @FXML private Button     deleteBtn;
+    @FXML private Button     exportBtn;
+    @FXML private Button     importBtn;
     @FXML private Button     deviceBtn;
     @FXML private Button     profileBtn;
     @FXML private Button     quitBtn;
@@ -93,6 +99,7 @@ public class CanvasListController {
         setupShortcuts();
         updateSelectionActions();
         refreshLocalBoards();
+        ensureWelcomeBoard();
 
         if (session.isConnected() && session.getClient() != null) {
             authenticate();
@@ -244,6 +251,8 @@ public class CanvasListController {
         openBtn.setOnAction(e -> openSelected());
         renameBtn.setOnAction(e -> renameSelected());
         deleteBtn.setOnAction(e -> deleteSelected());
+        exportBtn.setOnAction(e -> exportSelected());
+        importBtn.setOnAction(e -> chooseSlateFile());
         profileBtn.setOnAction(e -> ProfileDialog.show(getWindow(), () -> {
             if (session.getUsername() != null) deviceLabel.setText(session.getUsername());
         }));
@@ -543,6 +552,108 @@ public class CanvasListController {
         });
     }
 
+    /**
+     * Экспорт выбранной локальной доски вместе с используемыми ассетами.
+     * Серверные доски не экспортируются: их содержимое живёт на сервере.
+     */
+    private void exportSelected() {
+        CanvasItem item = findSelected();
+        if (item == null || !item.local) return;
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(I18n.t("dialog.export.title"));
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+                I18n.t("dialog.export.filter"), "*.slate"));
+        chooser.setInitialFileName(safeFileName(item.name) + ".slate");
+        File chosen = chooser.showSaveDialog(getWindow());
+        if (chosen == null) return;
+
+        Path target = chosen.toPath();
+        if (!target.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".slate")) {
+            target = target.resolveSibling(target.getFileName() + ".slate");
+        }
+        try {
+            LocalBoardService.getInstance().exportBoard(item.id, target);
+            showInfo(I18n.t("toast.exported", item.name));
+        } catch (Exception e) {
+            log.log(Level.WARNING, "Cannot export board " + item.id, e);
+            setStatus(I18n.t("error.export.failed", describeError(e)), true);
+        }
+    }
+
+    private void chooseSlateFile() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(I18n.t("dialog.import.title"));
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
+                I18n.t("dialog.export.filter"), "*.slate"));
+        File chosen = chooser.showOpenDialog(getWindow());
+        if (chosen != null) importSlateFile(chosen.toPath());
+    }
+
+    /** Импорт из интерфейса и из аргумента командной строки (двойной клик). */
+    public void importSlateFile(Path source) {
+        try {
+            LocalBoard imported = LocalBoardService.getInstance().importBoard(source);
+            refreshLocalBoards();
+            selectCard(imported.getId());
+            updateSelectionActions();
+            openSelected();
+            showInfo(I18n.t("toast.imported", imported.getName()));
+        } catch (Exception e) {
+            log.log(Level.WARNING, "Cannot import board " + source, e);
+            setStatus(I18n.t("error.import.failed", describeError(e)), true);
+        }
+    }
+
+    /** Открывает уже импортированную доску (запуск с файлом в аргументах). */
+    public void openBoardById(String id) {
+        refreshLocalBoards();
+        if (items.stream().noneMatch(i -> i.id.equals(id))) {
+            setStatus(I18n.t("error.import.failed", I18n.t("error.slate.noBoard")), true);
+            return;
+        }
+        selectCard(id);
+        updateSelectionActions();
+        openSelected();
+    }
+
+    public void showImportError(Throwable error) {
+        setStatus(I18n.t("error.import.failed", describeError(error)), true);
+    }
+
+    /** Для ошибок формата показываем локализованный ключ, а не имя исключения. */
+    private static String describeError(Throwable error) {
+        Throwable cause = error;
+        while (cause != null) {
+            if (cause instanceof SlateFileException slate) {
+                return I18n.t(slate.key(), slate.args());
+            }
+            cause = cause.getCause();
+        }
+        return error.getMessage() == null
+                ? error.getClass().getSimpleName() : error.getMessage();
+    }
+
+    private static String safeFileName(String name) {
+        String cleaned = name == null ? "" : name.trim()
+                .replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "-");
+        if (cleaned.isBlank()) cleaned = "board";
+        return cleaned.length() > 80 ? cleaned.substring(0, 80) : cleaned;
+    }
+
+    /**
+     * Первый запуск без сервера: пустое хранилище получает одну доску
+     * «Без названия». Флаг в SQLite не даёт создавать её снова после удаления.
+     */
+    private void ensureWelcomeBoard() {
+        try {
+            LocalBoardService.getInstance().ensureWelcomeBoard(I18n.t("board.untitled"))
+                    .ifPresent(board -> refreshLocalBoards());
+        } catch (Exception e) {
+            log.log(Level.WARNING, "Cannot create the first local board", e);
+        }
+    }
+
     private CanvasItem findSelected() {
         return items.stream().filter(i -> i.id.equals(selectedId)).findFirst().orElse(null);
     }
@@ -702,6 +813,10 @@ public class CanvasListController {
         openBtn.setDisable(none);
         renameBtn.setDisable(none);
         deleteBtn.setDisable(none);
+        if (exportBtn != null) {
+            CanvasItem item = findSelected();
+            exportBtn.setDisable(none || item == null || !item.local);
+        }
     }
 
     private void updateCount(int visible) {
@@ -820,6 +935,10 @@ public class CanvasListController {
         setIcon(openBtn, "arrow-right", "Открыть доску");
         setIcon(renameBtn, "edit-2", "Переименовать доску");
         setIcon(deleteBtn, "trash-2", "Удалить доску");
+        setIcon(exportBtn, "upload", I18n.t("button.export"));
+        setIcon(importBtn, "download", I18n.t("button.import"));
+        exportBtn.setText(I18n.t("button.export"));
+        importBtn.setText(I18n.t("button.import"));
         setIcon(profileBtn, "user", "Профиль");
         setIcon(deviceBtn, "shield", "Ключ устройства");
         setIcon(quitBtn, "log-out", "Закрыть приложение");

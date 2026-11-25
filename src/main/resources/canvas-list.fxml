@@ -39,6 +39,12 @@
             <Region prefHeight="4"/>
             <Button fx:id="deleteBtn" text="Удалить" styleClass="sidebar-btn-danger" maxWidth="Infinity"/>
 
+            <Region prefHeight="14"/>
+            <Separator styleClass="separator"/>
+            <Button fx:id="exportBtn" styleClass="sidebar-btn" maxWidth="Infinity"/>
+            <Region prefHeight="4"/>
+            <Button fx:id="importBtn" styleClass="sidebar-btn" maxWidth="Infinity"/>
+
             <Region VBox.vgrow="ALWAYS"/>
 
             <Button fx:id="profileBtn" text="Профиль" styleClass="sidebar-btn"
