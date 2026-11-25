@@ -1,0 +1,13 @@
+package org.example.canvasproject.migration;
+
+/** Ошибка переноса данных: недоступное хранилище, конфликт уникальности, обрыв. */
+public class MigrationException extends RuntimeException {
+
+    public MigrationException(String message) {
+        super(message);
+    }
+
+    public MigrationException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
