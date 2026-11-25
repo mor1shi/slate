@@ -36,6 +36,9 @@ class MongoStorageContractTest extends StorageContract {
     }
 
     private static void wipe() {
+        // Без MONGO_DB интеграционные тесты пропускаются, но @AfterEach всё
+        // равно вызывается: не открываем Mongo с пустым именем базы.
+        if (DB_NAME.isBlank()) return;
         String uri = System.getenv().getOrDefault("MONGO_URI", "mongodb://localhost:27017");
         try (var client = MongoClients.create(uri)) {
             // Удаляем документы, но не базу: индексы (уникальный ключ устройства)
