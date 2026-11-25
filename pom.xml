@@ -72,6 +72,35 @@
           <target>17</target>
         </configuration>
       </plugin>
+      <!-- Общий слой (контракты хранилища, транспорт) живёт в slate-core и
+           компилируется в клиент без отдельной публикации артефакта. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>add-slate-core</id>
+            <phase>generate-sources</phase>
+            <goals><goal>add-source</goal></goals>
+            <configuration>
+              <sources>
+                <source>${project.basedir}/slate-core/src/main/java</source>
+              </sources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>add-slate-core-tests</id>
+            <phase>generate-test-sources</phase>
+            <goals><goal>add-test-source</goal></goals>
+            <configuration>
+              <sources>
+                <source>${project.basedir}/slate-core/src/test/java</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <!-- Тесты -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

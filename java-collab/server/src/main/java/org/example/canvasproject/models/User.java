@@ -7,6 +7,7 @@ public class User {
     private String username;
     private String email;
     private String passwordHash;
+    private transient String deviceKeyHash;
     private String avatar;   // data:image/...;base64,... или пусто
     private String color;    // #RRGGBB — цвет курсора и выделения
     private long createdAt;
@@ -27,6 +28,8 @@ public class User {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public String getPasswordHash() { return passwordHash; }
+    public String getDeviceKeyHash() { return deviceKeyHash; }
+    public void setDeviceKeyHash(String deviceKeyHash) { this.deviceKeyHash = deviceKeyHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }

@@ -35,6 +35,11 @@ public class MongoDBService {
         inviteCodes = db.getCollection("invite_codes");
         tokens      = db.getCollection("device_tokens");
 
+        ensureIndexes();
+    }
+
+    /** Индексы создаются идемпотентно: тестовая база может быть пересоздана. */
+    public void ensureIndexes() {
         // Имена устройств могут совпадать; уникален только ключ устройства.
         try { users.dropIndex("username_1"); } catch (Exception ignored) {}
         users.createIndex(Indexes.ascending("username"));
@@ -102,6 +107,7 @@ public class MongoDBService {
         u.setId(doc.getObjectId("_id"));
         u.setColor(color);
         u.setAvatar("");
+        u.setDeviceKeyHash(deviceKeyHash);
         u.setCreatedAt(doc.getLong("createdAt"));
         return u;
     }
@@ -114,6 +120,59 @@ public class MongoDBService {
         };
         int idx = Math.floorMod(deviceKeyHash.hashCode(), palette.length);
         return palette[idx];
+    }
+
+    /**
+     * Создание устройства/аккаунта для адаптера репозитория. В отличие от
+     * createDeviceUser принимает любые поля и не генерирует цвет сам.
+     */
+    public User insertUserRecord(String username, String email, String passwordHash,
+                                 String deviceKeyHash, String color, String avatar) {
+        Document doc = new Document()
+            .append("username", username)
+            .append("createdAt", System.currentTimeMillis());
+        if (email != null && !email.isBlank()) doc.append("email", email.trim());
+        if (passwordHash != null) doc.append("passwordHash", passwordHash);
+        if (deviceKeyHash != null) doc.append("deviceKeyHash", deviceKeyHash);
+        if (color != null) doc.append("color", color);
+        if (avatar != null) doc.append("avatar", avatar);
+        users.insertOne(doc);
+
+        User u = new User(username, email, passwordHash);
+        u.setId(doc.getObjectId("_id"));
+        u.setColor(color);
+        u.setAvatar(avatar);
+        u.setCreatedAt(doc.getLong("createdAt"));
+        return u;
+    }
+
+    public boolean deleteUser(String userId) {
+        try {
+            return users.deleteOne(eq("_id", new ObjectId(userId))).getDeletedCount() > 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Атомарно заменяет весь набор элементов доски (одна запись документа). */
+    public void replaceElements(String canvasId, List<CanvasElement> elements) {
+        List<Document> docs = new ArrayList<>();
+        for (CanvasElement element : elements) {
+            docs.add(new Document()
+                .append("elementId", element.getElementId())
+                .append("type", element.getType())
+                .append("data", element.getData() == null ? new Document() : element.getData())
+                .append("addedBy", element.getAddedBy())
+                .append("updatedAt", element.getUpdatedAt()));
+        }
+        canvases.updateOne(
+            eq("_id", new ObjectId(canvasId)),
+            combine(set("elements", docs), set("updatedAt", System.currentTimeMillis()))
+        );
+    }
+
+    public void deleteInvitesForCanvas(String canvasId) {
+        inviteCodes.deleteMany(eq("canvasId", canvasId));
     }
 
     public boolean updateUserProfile(String userId, String username, String color, String avatar) {
@@ -169,6 +228,7 @@ public class MongoDBService {
         u.setUsername(doc.getString("username"));
         u.setEmail(doc.getString("email"));
         u.setPasswordHash(doc.getString("passwordHash"));
+        u.setDeviceKeyHash(doc.getString("deviceKeyHash"));
         u.setAvatar(doc.getString("avatar"));
         u.setColor(doc.getString("color"));
         Long created = doc.getLong("createdAt");
